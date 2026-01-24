@@ -1,0 +1,254 @@
+---
+title: Address Book Example
+description: Complete example of building and reading an address book
+---
+
+This example demonstrates ZAP's core features: structs, lists, enums, and unions.
+
+## Schema
+
+Create `addressbook.capnp`:
+
+```capnp
+@0x9eb32e19f86ee174;
+
+using Java = import "/capnp/java.capnp";
+$Java.package("com.example.addressbook");
+$Java.outerClassname("Addressbook");
+
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+  phones @3 :List(PhoneNumber);
+
+  struct PhoneNumber {
+    number @0 :Text;
+    type @1 :Type;
+
+    enum Type {
+      mobile @0;
+      home @1;
+      work @2;
+    }
+  }
+
+  employment :union {
+    unemployed @4 :Void;
+    employer @5 :Text;
+    school @6 :Text;
+    selfEmployed @7 :Void;
+  }
+}
+
+struct AddressBook {
+  people @0 :List(Person);
+}
+```
+
+## Generate Code
+
+```bash
+capnp compile -ojava:src/main/java addressbook.capnp
+```
+
+## Writing an Address Book
+
+```java
+package com.example.addressbook;
+
+import org.capnproto.*;
+import com.example.addressbook.Addressbook.*;
+import java.io.*;
+
+public class WriteAddressBook {
+
+    public static void main(String[] args) throws IOException {
+        MessageBuilder message = new MessageBuilder();
+        AddressBook.Builder addressBook = message.initRoot(AddressBook.factory);
+
+        // Initialize list of people
+        StructList.Builder<Person.Builder> people = addressBook.initPeople(2);
+
+        // First person: Alice
+        Person.Builder alice = people.get(0);
+        alice.setId(1);
+        alice.setName("Alice Smith");
+        alice.setEmail("alice@example.com");
+
+        // Alice's phone numbers
+        StructList.Builder<Person.PhoneNumber.Builder> alicePhones = alice.initPhones(2);
+
+        alicePhones.get(0).setNumber("555-1234");
+        alicePhones.get(0).setType(Person.PhoneNumber.Type.MOBILE);
+
+        alicePhones.get(1).setNumber("555-5678");
+        alicePhones.get(1).setType(Person.PhoneNumber.Type.WORK);
+
+        // Alice's employment (student)
+        alice.getEmployment().setSchool("Stanford University");
+
+        // Second person: Bob
+        Person.Builder bob = people.get(1);
+        bob.setId(2);
+        bob.setName("Bob Jones");
+        bob.setEmail("bob@example.com");
+
+        // Bob's phone numbers
+        StructList.Builder<Person.PhoneNumber.Builder> bobPhones = bob.initPhones(1);
+        bobPhones.get(0).setNumber("555-9999");
+        bobPhones.get(0).setType(Person.PhoneNumber.Type.HOME);
+
+        // Bob's employment (employed)
+        bob.getEmployment().setEmployer("Acme Corporation");
+
+        // Write to file
+        try (FileOutputStream fos = new FileOutputStream("addressbook.bin")) {
+            Serialize.write(fos.getChannel(), message);
+        }
+
+        System.out.println("Address book written to addressbook.bin");
+    }
+}
+```
+
+## Reading an Address Book
+
+```java
+package com.example.addressbook;
+
+import org.capnproto.*;
+import com.example.addressbook.Addressbook.*;
+import java.io.*;
+
+public class ReadAddressBook {
+
+    public static void main(String[] args) throws IOException {
+        try (FileInputStream fis = new FileInputStream("addressbook.bin")) {
+            MessageReader message = Serialize.read(fis.getChannel());
+            AddressBook.Reader addressBook = message.getRoot(AddressBook.factory);
+
+            for (Person.Reader person : addressBook.getPeople()) {
+                printPerson(person);
+                System.out.println();
+            }
+        }
+    }
+
+    private static void printPerson(Person.Reader person) {
+        System.out.println("Person #" + person.getId());
+        System.out.println("  Name: " + person.getName());
+        System.out.println("  Email: " + person.getEmail());
+
+        // Print phone numbers
+        System.out.println("  Phones:");
+        for (Person.PhoneNumber.Reader phone : person.getPhones()) {
+            String typeStr = switch (phone.getType()) {
+                case MOBILE -> "mobile";
+                case HOME -> "home";
+                case WORK -> "work";
+            };
+            System.out.println("    " + typeStr + ": " + phone.getNumber());
+        }
+
+        // Print employment
+        Person.Employment.Reader employment = person.getEmployment();
+        System.out.print("  Employment: ");
+
+        switch (employment.which()) {
+            case UNEMPLOYED -> System.out.println("unemployed");
+            case EMPLOYER -> System.out.println("works at " + employment.getEmployer());
+            case SCHOOL -> System.out.println("student at " + employment.getSchool());
+            case SELF_EMPLOYED -> System.out.println("self-employed");
+        }
+    }
+}
+```
+
+## Output
+
+```
+Person #1
+  Name: Alice Smith
+  Email: alice@example.com
+  Phones:
+    mobile: 555-1234
+    work: 555-5678
+  Employment: student at Stanford University
+
+Person #2
+  Name: Bob Jones
+  Email: bob@example.com
+  Phones:
+    home: 555-9999
+  Employment: works at Acme Corporation
+```
+
+## Maven Project
+
+`pom.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>addressbook</artifactId>
+    <version>1.0.0</version>
+
+    <properties>
+        <maven.compiler.release>11</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.capnproto</groupId>
+            <artifactId>runtime</artifactId>
+            <version>0.1.17</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## Gradle Project
+
+`build.gradle.kts`:
+
+```kotlin
+plugins {
+    java
+    application
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("org.capnproto:runtime:0.1.17")
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
+}
+
+application {
+    mainClass.set("com.example.addressbook.WriteAddressBook")
+}
+```
+
+## Key Concepts Demonstrated
+
+1. **Struct initialization**: `message.initRoot(Factory.factory)`
+2. **List creation**: `struct.initList(size)` allocates fixed-size list
+3. **List access**: `list.get(index)` returns builder for element
+4. **Enums**: Type-safe enum access with switch expressions
+5. **Unions**: `which()` method determines active variant
+6. **Iteration**: For-each loop over struct lists

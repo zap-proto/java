@@ -1,0 +1,298 @@
+---
+title: Quick Start
+description: Build your first ZAP application in Java
+---
+
+This guide walks you through building a complete ZAP application in Java, from schema definition to serialization and deserialization.
+
+## Step 1: Define Your Schema
+
+Create a file `addressbook.capnp`:
+
+```capnp
+@0x9eb32e19f86ee174;
+
+using Java = import "/capnp/java.capnp";
+$Java.package("com.example.addressbook");
+$Java.outerClassname("Addressbook");
+
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+  phones @3 :List(PhoneNumber);
+
+  struct PhoneNumber {
+    number @0 :Text;
+    type @1 :Type;
+
+    enum Type {
+      mobile @0;
+      home @1;
+      work @2;
+    }
+  }
+
+  employment :union {
+    unemployed @4 :Void;
+    employer @5 :Text;
+    school @6 :Text;
+    selfEmployed @7 :Void;
+  }
+}
+
+struct AddressBook {
+  people @0 :List(Person);
+}
+```
+
+Key elements:
+- `@0x...`: Unique file ID (generate with `capnp id`)
+- `$Java.package`: Target Java package
+- `$Java.outerClassname`: Generated outer class name
+- `@N`: Field ordinals for binary compatibility
+
+## Step 2: Generate Java Code
+
+Run the ZAP compiler:
+
+```bash
+capnp compile -ojava:src/main/java addressbook.capnp
+```
+
+This generates `Addressbook.java` containing:
+- `Person.Builder` and `Person.Reader` classes
+- `AddressBook.Builder` and `AddressBook.Reader` classes
+- Factory objects for construction
+
+## Step 3: Build Messages
+
+Use `MessageBuilder` to construct ZAP messages:
+
+```java
+import org.capnproto.MessageBuilder;
+import org.capnproto.StructList;
+import com.example.addressbook.Addressbook.AddressBook;
+import com.example.addressbook.Addressbook.Person;
+
+public class WriteAddressBook {
+    public static MessageBuilder createAddressBook() {
+        MessageBuilder message = new MessageBuilder();
+
+        // Initialize the root struct
+        AddressBook.Builder addressBook = message.initRoot(AddressBook.factory);
+
+        // Initialize a list of 2 people
+        StructList.Builder<Person.Builder> people = addressBook.initPeople(2);
+
+        // Build first person
+        Person.Builder alice = people.get(0);
+        alice.setId(123);
+        alice.setName("Alice");
+        alice.setEmail("alice@example.com");
+
+        // Add phone numbers
+        StructList.Builder<Person.PhoneNumber.Builder> alicePhones = alice.initPhones(1);
+        alicePhones.get(0).setNumber("555-1212");
+        alicePhones.get(0).setType(Person.PhoneNumber.Type.MOBILE);
+
+        // Set union field
+        alice.getEmployment().setSchool("MIT");
+
+        // Build second person
+        Person.Builder bob = people.get(1);
+        bob.setId(456);
+        bob.setName("Bob");
+        bob.setEmail("bob@example.com");
+
+        StructList.Builder<Person.PhoneNumber.Builder> bobPhones = bob.initPhones(2);
+        bobPhones.get(0).setNumber("555-4567");
+        bobPhones.get(0).setType(Person.PhoneNumber.Type.HOME);
+        bobPhones.get(1).setNumber("555-7654");
+        bobPhones.get(1).setType(Person.PhoneNumber.Type.WORK);
+
+        bob.getEmployment().setUnemployed(org.capnproto.Void.VOID);
+
+        return message;
+    }
+}
+```
+
+## Step 4: Serialize Messages
+
+Write messages to files or streams:
+
+```java
+import org.capnproto.Serialize;
+import org.capnproto.SerializePacked;
+import java.io.FileOutputStream;
+import java.nio.channels.WritableByteChannel;
+
+public class SerializeExample {
+    public static void main(String[] args) throws Exception {
+        MessageBuilder message = WriteAddressBook.createAddressBook();
+
+        // Standard serialization (unpacked)
+        try (FileOutputStream fos = new FileOutputStream("addressbook.bin")) {
+            WritableByteChannel channel = fos.getChannel();
+            Serialize.write(channel, message);
+        }
+
+        // Packed serialization (smaller but slower)
+        try (FileOutputStream fos = new FileOutputStream("addressbook.packed")) {
+            WritableByteChannel channel = fos.getChannel();
+            SerializePacked.writeToUnbuffered(channel, message);
+        }
+    }
+}
+```
+
+## Step 5: Read Messages
+
+Deserialize and access data:
+
+```java
+import org.capnproto.MessageReader;
+import org.capnproto.Serialize;
+import org.capnproto.SerializePacked;
+import java.io.FileInputStream;
+import java.nio.channels.ReadableByteChannel;
+
+public class ReadAddressBook {
+    public static void main(String[] args) throws Exception {
+        // Read standard format
+        try (FileInputStream fis = new FileInputStream("addressbook.bin")) {
+            ReadableByteChannel channel = fis.getChannel();
+            MessageReader message = Serialize.read(channel);
+            printAddressBook(message);
+        }
+
+        // Read packed format
+        try (FileInputStream fis = new FileInputStream("addressbook.packed")) {
+            ReadableByteChannel channel = fis.getChannel();
+            MessageReader message = SerializePacked.readFromUnbuffered(channel);
+            printAddressBook(message);
+        }
+    }
+
+    static void printAddressBook(MessageReader message) {
+        AddressBook.Reader addressBook = message.getRoot(AddressBook.factory);
+
+        for (Person.Reader person : addressBook.getPeople()) {
+            System.out.println(person.getName() + ": " + person.getEmail());
+
+            for (Person.PhoneNumber.Reader phone : person.getPhones()) {
+                String typeStr = switch (phone.getType()) {
+                    case MOBILE -> "mobile";
+                    case HOME -> "home";
+                    case WORK -> "work";
+                };
+                System.out.println("  " + typeStr + ": " + phone.getNumber());
+            }
+
+            Person.Employment.Reader employment = person.getEmployment();
+            switch (employment.which()) {
+                case UNEMPLOYED -> System.out.println("  unemployed");
+                case EMPLOYER -> System.out.println("  employer: " + employment.getEmployer());
+                case SCHOOL -> System.out.println("  student at: " + employment.getSchool());
+                case SELF_EMPLOYED -> System.out.println("  self-employed");
+            }
+        }
+    }
+}
+```
+
+## Step 6: Working with ByteBuffers
+
+For in-memory operations or network protocols:
+
+```java
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+public class ByteBufferExample {
+    public static ByteBuffer serializeToBuffer(MessageBuilder message) {
+        ByteBuffer[] segments = message.getSegmentsForOutput();
+
+        // Calculate total size
+        int totalSize = 4 + segments.length * 4; // header
+        if (segments.length % 2 == 0) totalSize += 4; // padding
+        for (ByteBuffer seg : segments) {
+            totalSize += seg.remaining();
+        }
+
+        ByteBuffer buffer = ByteBuffer.allocate(totalSize);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        // Write header
+        buffer.putInt(segments.length - 1);
+        for (ByteBuffer seg : segments) {
+            buffer.putInt(seg.remaining() / 8);
+        }
+        if (segments.length % 2 == 0) {
+            buffer.putInt(0); // padding
+        }
+
+        // Write segments
+        for (ByteBuffer seg : segments) {
+            buffer.put(seg);
+        }
+
+        buffer.flip();
+        return buffer;
+    }
+
+    public static MessageReader deserializeFromBuffer(ByteBuffer buffer) throws Exception {
+        return Serialize.read(buffer);
+    }
+}
+```
+
+## Complete Example
+
+Here is a self-contained example:
+
+```java
+import org.capnproto.*;
+import com.example.addressbook.Addressbook.*;
+import java.io.*;
+import java.nio.channels.*;
+
+public class AddressBookDemo {
+    public static void main(String[] args) throws Exception {
+        // Create and populate
+        MessageBuilder writeMsg = new MessageBuilder();
+        AddressBook.Builder book = writeMsg.initRoot(AddressBook.factory);
+        StructList.Builder<Person.Builder> people = book.initPeople(1);
+
+        Person.Builder person = people.get(0);
+        person.setId(1);
+        person.setName("Demo User");
+        person.setEmail("demo@example.com");
+
+        // Serialize to byte array
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        WritableByteChannel outChan = Channels.newChannel(baos);
+        Serialize.write(outChan, writeMsg);
+
+        byte[] data = baos.toByteArray();
+        System.out.println("Serialized " + data.length + " bytes");
+
+        // Deserialize
+        ByteArrayInputStream bais = new ByteArrayInputStream(data);
+        ReadableByteChannel inChan = Channels.newChannel(bais);
+        MessageReader readMsg = Serialize.read(inChan);
+
+        AddressBook.Reader readBook = readMsg.getRoot(AddressBook.factory);
+        for (Person.Reader p : readBook.getPeople()) {
+            System.out.println("Read: " + p.getName() + " <" + p.getEmail() + ">");
+        }
+    }
+}
+```
+
+## Next Steps
+
+- [Schema Guide](/docs/schema) - Deep dive into schema design
+- [Serialization](/docs/serialization) - Advanced serialization options
+- [API Reference](/docs/api-reference) - Complete API documentation

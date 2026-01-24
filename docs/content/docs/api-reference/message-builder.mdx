@@ -1,0 +1,103 @@
+---
+title: MessageBuilder
+description: API reference for the MessageBuilder class
+---
+
+`MessageBuilder` is the entry point for constructing ZAP messages. It manages memory allocation and provides access to the root struct.
+
+## Package
+
+```java
+import org.capnproto.MessageBuilder;
+```
+
+## Constructors
+
+### `MessageBuilder()`
+
+Creates a message builder with default settings.
+
+```java
+MessageBuilder message = new MessageBuilder();
+```
+
+### `MessageBuilder(int firstSegmentWords)`
+
+Creates a message builder with a specified initial segment size.
+
+```java
+// Pre-allocate for larger messages
+MessageBuilder message = new MessageBuilder(4096);
+```
+
+**Parameters:**
+- `firstSegmentWords` - Size of the first segment in 8-byte words
+
+## Methods
+
+### `initRoot(FromPointerBuilder<T> factory)`
+
+Initializes and returns the root struct, clearing any existing root.
+
+```java
+Person.Builder person = message.initRoot(Person.factory);
+```
+
+**Returns:** Builder for the root struct
+
+### `getRoot(FromPointerBuilder<T> factory)`
+
+Returns the existing root struct builder.
+
+```java
+Person.Builder person = message.getRoot(Person.factory);
+```
+
+**Returns:** Builder for the root struct
+
+### `setRoot(SetPointerBuilder<T, U> factory, U reader)`
+
+Sets the root struct by copying from a reader.
+
+```java
+Person.Reader source = otherMessage.getRoot(Person.factory);
+message.setRoot(Person.factory, source);
+```
+
+### `getSegmentsForOutput()`
+
+Returns segments for serialization.
+
+```java
+ByteBuffer[] segments = message.getSegmentsForOutput();
+Serialize.write(channel, message);
+```
+
+**Returns:** Array of ByteBuffers containing the message data
+
+## Usage Example
+
+```java
+// Create a new message
+MessageBuilder message = new MessageBuilder();
+
+// Initialize the root struct
+AddressBook.Builder addressBook = message.initRoot(AddressBook.factory);
+
+// Build the people list
+StructList.Builder<Person.Builder> people = addressBook.initPeople(2);
+
+Person.Builder alice = people.get(0);
+alice.setName("Alice");
+alice.setEmail("alice@example.com");
+
+Person.Builder bob = people.get(1);
+bob.setName("Bob");
+bob.setEmail("bob@example.com");
+
+// Write to a file
+try (FileOutputStream fos = new FileOutputStream("addressbook.capnp");
+     FileChannel channel = fos.getChannel()) {
+    Serialize.write(channel, message);
+}
+```

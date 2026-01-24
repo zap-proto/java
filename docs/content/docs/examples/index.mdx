@@ -1,0 +1,81 @@
+---
+title: Examples
+description: Real-world examples of ZAP usage in Java
+---
+
+This section provides complete, runnable examples demonstrating common ZAP patterns in Java.
+
+## Available Examples
+
+| Example | Description |
+|---------|-------------|
+| [Address Book](/docs/examples/addressbook) | Complete CRUD example with nested structs |
+| [Network Protocol](/docs/examples/network) | Client-server communication |
+| [File Storage](/docs/examples/storage) | Persistent message storage |
+
+## Quick Reference
+
+### Minimal Write Example
+
+```java
+import org.capnproto.*;
+
+public class WriteExample {
+    public static void main(String[] args) throws Exception {
+        MessageBuilder message = new MessageBuilder();
+        MyStruct.Builder root = message.initRoot(MyStruct.factory);
+        root.setField("value");
+
+        try (var fos = new java.io.FileOutputStream("output.bin")) {
+            Serialize.write(fos.getChannel(), message);
+        }
+    }
+}
+```
+
+### Minimal Read Example
+
+```java
+import org.capnproto.*;
+
+public class ReadExample {
+    public static void main(String[] args) throws Exception {
+        try (var fis = new java.io.FileInputStream("output.bin")) {
+            MessageReader reader = Serialize.read(fis.getChannel());
+            MyStruct.Reader root = reader.getRoot(MyStruct.factory);
+            System.out.println(root.getField());
+        }
+    }
+}
+```
+
+### Round-Trip in Memory
+
+```java
+import org.capnproto.*;
+import java.io.*;
+import java.nio.channels.*;
+
+public class RoundTrip {
+    public static void main(String[] args) throws Exception {
+        // Build
+        MessageBuilder writeMsg = new MessageBuilder();
+        Person.Builder person = writeMsg.initRoot(Person.factory);
+        person.setName("Alice");
+        person.setId(123);
+
+        // Serialize to bytes
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Serialize.write(Channels.newChannel(baos), writeMsg);
+        byte[] bytes = baos.toByteArray();
+
+        // Deserialize from bytes
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        MessageReader readMsg = Serialize.read(Channels.newChannel(bais));
+        Person.Reader readPerson = readMsg.getRoot(Person.factory);
+
+        System.out.println("Name: " + readPerson.getName());
+        System.out.println("ID: " + readPerson.getId());
+    }
+}
+```

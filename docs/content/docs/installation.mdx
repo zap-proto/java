@@ -1,0 +1,282 @@
+---
+title: Installation
+description: Add ZAP Java to your Maven or Gradle project
+---
+
+## Prerequisites
+
+Before using ZAP Java, you need:
+
+1. **Java 11+**: The runtime requires Java 11 or later
+2. **ZAP compiler**: Install the `capnp` compiler for schema compilation
+
+### Installing the ZAP Compiler
+
+On macOS:
+```bash
+brew install capnp
+```
+
+On Ubuntu/Debian:
+```bash
+apt-get install capnproto
+```
+
+On Fedora:
+```bash
+dnf install capnproto
+```
+
+From source:
+```bash
+git clone https://github.com/capnproto/capnproto.git
+cd capnproto/c++
+autoreconf -i
+./configure
+make -j$(nproc)
+sudo make install
+```
+
+## Maven
+
+Add the runtime dependency to your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>org.capnproto</groupId>
+    <artifactId>runtime</artifactId>
+    <version>0.1.17</version>
+</dependency>
+```
+
+For code generation during build, add the compiler plugin:
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.capnproto</groupId>
+            <artifactId>capnpc-java-plugin</artifactId>
+            <version>0.1.17</version>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>generate</goal>
+                    </goals>
+                    <configuration>
+                        <schemas>
+                            <schema>src/main/schema/addressbook.capnp</schema>
+                        </schemas>
+                        <outputDirectory>${project.build.directory}/generated-sources/capnp</outputDirectory>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
+```
+
+### Complete Maven Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>capnp-demo</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <capnproto.version>0.1.17</capnproto.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.capnproto</groupId>
+            <artifactId>runtime</artifactId>
+            <version>${capnproto.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>11</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+## Gradle
+
+Add the runtime dependency to your `build.gradle`:
+
+```groovy
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.capnproto:runtime:0.1.17'
+}
+```
+
+### Gradle with Kotlin DSL
+
+For `build.gradle.kts`:
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("org.capnproto:runtime:0.1.17")
+}
+```
+
+### Code Generation Task
+
+Add a custom task for schema compilation:
+
+```groovy
+plugins {
+    id 'java'
+}
+
+def capnpSrcDir = file('src/main/schema')
+def capnpOutDir = file("${buildDir}/generated-sources/capnp")
+
+task generateCapnp(type: Exec) {
+    inputs.dir capnpSrcDir
+    outputs.dir capnpOutDir
+
+    doFirst {
+        capnpOutDir.mkdirs()
+    }
+
+    commandLine 'capnp', 'compile',
+        '-ojava:' + capnpOutDir.absolutePath,
+        '--src-prefix=' + capnpSrcDir.absolutePath,
+        fileTree(capnpSrcDir).matching { include '**/*.capnp' }.files.join(' ')
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir capnpOutDir
+        }
+    }
+}
+
+compileJava.dependsOn generateCapnp
+```
+
+### Complete Gradle Example (Kotlin DSL)
+
+```kotlin
+plugins {
+    java
+    application
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("org.capnproto:runtime:0.1.17")
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
+}
+
+val capnpSrcDir = file("src/main/schema")
+val capnpOutDir = file("${layout.buildDirectory.get()}/generated-sources/capnp")
+
+tasks.register<Exec>("generateCapnp") {
+    inputs.dir(capnpSrcDir)
+    outputs.dir(capnpOutDir)
+
+    doFirst {
+        capnpOutDir.mkdirs()
+    }
+
+    commandLine("capnp", "compile",
+        "-ojava:${capnpOutDir.absolutePath}",
+        "--src-prefix=${capnpSrcDir.absolutePath}")
+    args(fileTree(capnpSrcDir).matching { include("**/*.capnp") }.files.map { it.absolutePath })
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(capnpOutDir)
+        }
+    }
+}
+
+tasks.compileJava {
+    dependsOn("generateCapnp")
+}
+
+application {
+    mainClass.set("com.example.Main")
+}
+```
+
+## Manual Code Generation
+
+If you prefer manual code generation:
+
+```bash
+# Generate Java code from schema
+capnp compile -ojava:src/main/java addressbook.capnp
+```
+
+The generated file will be placed in the package specified by the schema's `$Java.package` annotation.
+
+## Verify Installation
+
+Create a simple test to verify the installation:
+
+```java
+import org.capnproto.MessageBuilder;
+import org.capnproto.MessageReader;
+import org.capnproto.Serialize;
+
+public class VerifyInstall {
+    public static void main(String[] args) {
+        // Create an empty message
+        MessageBuilder message = new MessageBuilder();
+
+        // Serialize to bytes
+        java.nio.ByteBuffer[] segments = message.getSegmentsForOutput();
+
+        System.out.println("ZAP Java is working!");
+        System.out.println("Segments: " + segments.length);
+    }
+}
+```
+
+## Next Steps
+
+- [Quick Start](/docs/quickstart) - Build your first application
+- [Schema Guide](/docs/schema) - Learn schema design

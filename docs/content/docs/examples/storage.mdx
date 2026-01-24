@@ -1,0 +1,389 @@
+---
+title: File Storage Example
+description: Persistent storage of ZAP messages
+---
+
+This example demonstrates storing and retrieving ZAP messages from files, including streaming multiple messages.
+
+## Schema
+
+Create `storage.capnp`:
+
+```capnp
+@0xf1e2d3c4b5a69780;
+
+using Java = import "/capnp/java.capnp";
+$Java.package("com.example.storage");
+$Java.outerClassname("Storage");
+
+struct Record {
+  id @0 :UInt64;
+  timestamp @1 :Int64;
+  key @2 :Text;
+  value @3 :Data;
+  tags @4 :List(Text);
+  metadata @5 :List(KeyValue);
+
+  struct KeyValue {
+    key @0 :Text;
+    value @1 :Text;
+  }
+}
+
+struct Index {
+  entries @0 :List(Entry);
+
+  struct Entry {
+    id @0 :UInt64;
+    offset @1 :UInt64;
+    size @2 :UInt32;
+  }
+}
+```
+
+## Single Message Storage
+
+```java
+package com.example.storage;
+
+import org.capnproto.*;
+import com.example.storage.Storage.*;
+import java.io.*;
+import java.nio.*;
+import java.nio.channels.*;
+import java.nio.file.*;
+
+public class SingleMessageStorage {
+
+    public static void writeRecord(Path path, Record.Reader record) throws IOException {
+        MessageBuilder message = new MessageBuilder();
+        message.setRoot(Record.factory, record);
+
+        try (FileChannel channel = FileChannel.open(path,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            Serialize.write(channel, message);
+        }
+    }
+
+    public static Record.Reader readRecord(Path path) throws IOException {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            MessageReader message = Serialize.read(channel);
+            return message.getRoot(Record.factory);
+        }
+    }
+
+    // Memory-mapped reading for large files
+    public static Record.Reader readRecordMapped(Path path) throws IOException {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            MappedByteBuffer buffer = channel.map(
+                FileChannel.MapMode.READ_ONLY, 0, channel.size());
+            buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+            MessageReader message = Serialize.read(buffer);
+            return message.getRoot(Record.factory);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        Path path = Path.of("record.bin");
+
+        // Create a record
+        MessageBuilder msg = new MessageBuilder();
+        Record.Builder record = msg.initRoot(Record.factory);
+        record.setId(1);
+        record.setTimestamp(System.currentTimeMillis());
+        record.setKey("example");
+        record.setValue("Hello, World!".getBytes());
+
+        TextList.Builder tags = record.initTags(2);
+        tags.set(0, new Text.Reader("tag1"));
+        tags.set(1, new Text.Reader("tag2"));
+
+        // Write
+        writeRecord(path, msg.getRoot(Record.factory).asReader());
+        System.out.println("Written to " + path);
+
+        // Read back
+        Record.Reader read = readRecord(path);
+        System.out.println("ID: " + read.getId());
+        System.out.println("Key: " + read.getKey());
+        System.out.println("Value: " + new String(
+            read.getValue().toArray()));
+    }
+}
+```
+
+## Stream of Messages
+
+```java
+package com.example.storage;
+
+import org.capnproto.*;
+import com.example.storage.Storage.*;
+import java.io.*;
+import java.nio.channels.*;
+import java.nio.file.*;
+import java.util.*;
+
+public class MessageStream {
+
+    // Write multiple messages to a file
+    public static void writeRecords(Path path, List<Record.Reader> records)
+            throws IOException {
+        try (FileChannel channel = FileChannel.open(path,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            for (Record.Reader record : records) {
+                MessageBuilder message = new MessageBuilder();
+                message.setRoot(Record.factory, record);
+                Serialize.write(channel, message);
+            }
+        }
+    }
+
+    // Read all messages from a file
+    public static List<Record.Reader> readAllRecords(Path path) throws IOException {
+        List<Record.Reader> records = new ArrayList<>();
+
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            Optional<MessageReader> maybeMessage;
+            while ((maybeMessage = Serialize.tryRead(channel)).isPresent()) {
+                MessageReader message = maybeMessage.get();
+                records.add(message.getRoot(Record.factory));
+            }
+        }
+
+        return records;
+    }
+
+    // Stream records with a callback (memory-efficient)
+    public static void streamRecords(Path path, RecordConsumer consumer)
+            throws IOException {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            Optional<MessageReader> maybeMessage;
+            while ((maybeMessage = Serialize.tryRead(channel)).isPresent()) {
+                MessageReader message = maybeMessage.get();
+                Record.Reader record = message.getRoot(Record.factory);
+                if (!consumer.accept(record)) {
+                    break;  // Consumer requested stop
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface RecordConsumer {
+        boolean accept(Record.Reader record);  // Return false to stop
+    }
+
+    public static void main(String[] args) throws IOException {
+        Path path = Path.of("records.bin");
+
+        // Create some records
+        List<Record.Reader> records = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            MessageBuilder msg = new MessageBuilder();
+            Record.Builder rec = msg.initRoot(Record.factory);
+            rec.setId(i);
+            rec.setTimestamp(System.currentTimeMillis());
+            rec.setKey("record-" + i);
+            records.add(msg.getRoot(Record.factory).asReader());
+        }
+
+        // Write all
+        writeRecords(path, records);
+        System.out.println("Written " + records.size() + " records");
+
+        // Read all
+        List<Record.Reader> loaded = readAllRecords(path);
+        System.out.println("Read " + loaded.size() + " records");
+
+        // Stream with early termination
+        System.out.println("First 5 records:");
+        final int[] count = {0};
+        streamRecords(path, record -> {
+            System.out.println("  " + record.getKey());
+            return ++count[0] < 5;
+        });
+    }
+}
+```
+
+## Indexed Storage
+
+```java
+package com.example.storage;
+
+import org.capnproto.*;
+import com.example.storage.Storage.*;
+import java.io.*;
+import java.nio.channels.*;
+import java.nio.file.*;
+import java.util.*;
+
+public class IndexedStorage {
+    private final Path dataPath;
+    private final Path indexPath;
+    private final Map<Long, IndexEntry> indexCache = new HashMap<>();
+
+    private record IndexEntry(long offset, int size) {}
+
+    public IndexedStorage(Path basePath) {
+        this.dataPath = basePath.resolve("data.bin");
+        this.indexPath = basePath.resolve("index.bin");
+    }
+
+    public void append(Record.Reader record) throws IOException {
+        // Serialize the record
+        MessageBuilder message = new MessageBuilder();
+        message.setRoot(Record.factory, record);
+
+        long sizeWords = Serialize.computeSerializedSizeInWords(message);
+        int sizeBytes = (int) (sizeWords * 8);
+
+        // Append to data file
+        long offset;
+        try (FileChannel channel = FileChannel.open(dataPath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.APPEND)) {
+            offset = channel.position();
+            Serialize.write(channel, message);
+        }
+
+        // Update index cache
+        indexCache.put(record.getId(), new IndexEntry(offset, sizeBytes));
+    }
+
+    public Optional<Record.Reader> get(long id) throws IOException {
+        IndexEntry entry = indexCache.get(id);
+        if (entry == null) {
+            return Optional.empty();
+        }
+
+        try (FileChannel channel = FileChannel.open(dataPath, StandardOpenOption.READ)) {
+            channel.position(entry.offset);
+            MessageReader message = Serialize.read(channel);
+            return Optional.of(message.getRoot(Record.factory));
+        }
+    }
+
+    public void saveIndex() throws IOException {
+        MessageBuilder message = new MessageBuilder();
+        Index.Builder index = message.initRoot(Index.factory);
+
+        StructList.Builder<Index.Entry.Builder> entries =
+            index.initEntries(indexCache.size());
+
+        int i = 0;
+        for (Map.Entry<Long, IndexEntry> e : indexCache.entrySet()) {
+            Index.Entry.Builder entry = entries.get(i++);
+            entry.setId(e.getKey());
+            entry.setOffset(e.getValue().offset);
+            entry.setSize(e.getValue().size);
+        }
+
+        try (FileChannel channel = FileChannel.open(indexPath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            Serialize.write(channel, message);
+        }
+    }
+
+    public void loadIndex() throws IOException {
+        if (!Files.exists(indexPath)) {
+            return;
+        }
+
+        try (FileChannel channel = FileChannel.open(indexPath, StandardOpenOption.READ)) {
+            MessageReader message = Serialize.read(channel);
+            Index.Reader index = message.getRoot(Index.factory);
+
+            indexCache.clear();
+            for (Index.Entry.Reader entry : index.getEntries()) {
+                indexCache.put(entry.getId(),
+                    new IndexEntry(entry.getOffset(), entry.getSize()));
+            }
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        Path base = Path.of("indexed-storage");
+        Files.createDirectories(base);
+
+        IndexedStorage storage = new IndexedStorage(base);
+        storage.loadIndex();
+
+        // Add some records
+        for (int i = 0; i < 10; i++) {
+            MessageBuilder msg = new MessageBuilder();
+            Record.Builder rec = msg.initRoot(Record.factory);
+            rec.setId(i);
+            rec.setKey("key-" + i);
+            rec.setValue(("value-" + i).getBytes());
+
+            storage.append(msg.getRoot(Record.factory).asReader());
+        }
+
+        storage.saveIndex();
+
+        // Random access lookup
+        Optional<Record.Reader> record = storage.get(5);
+        record.ifPresent(r ->
+            System.out.println("Found: " + r.getKey() + " = " +
+                new String(r.getValue().toArray())));
+    }
+}
+```
+
+## Packed Storage
+
+For space-efficient storage:
+
+```java
+public static void writeRecordsPacked(Path path, List<Record.Reader> records)
+        throws IOException {
+    try (FileOutputStream fos = new FileOutputStream(path.toFile());
+         BufferedOutputStreamWrapper bos =
+             new BufferedOutputStreamWrapper(fos.getChannel())) {
+
+        for (Record.Reader record : records) {
+            MessageBuilder message = new MessageBuilder();
+            message.setRoot(Record.factory, record);
+            SerializePacked.write(bos, message);
+        }
+        bos.flush();
+    }
+}
+
+public static List<Record.Reader> readAllRecordsPacked(Path path)
+        throws IOException {
+    List<Record.Reader> records = new ArrayList<>();
+
+    try (FileInputStream fis = new FileInputStream(path.toFile());
+         BufferedInputStreamWrapper bis =
+             new BufferedInputStreamWrapper(fis.getChannel())) {
+
+        // Note: No tryRead for packed format - need to handle EOF differently
+        while (fis.available() > 0) {
+            MessageReader message = SerializePacked.read(bis);
+            records.add(message.getRoot(Record.factory));
+        }
+    }
+
+    return records;
+}
+```
+
+## Key Patterns
+
+1. **Single message**: Simple write/read with `Serialize`
+2. **Message stream**: Multiple messages with `tryRead()` for EOF
+3. **Indexed access**: Separate index file for random access
+4. **Memory mapping**: Use `MappedByteBuffer` for large files
+5. **Packed format**: Use `SerializePacked` for compression

@@ -1,0 +1,9 @@
+{
+  "title": "Examples",
+  "pages": [
+    "index",
+    "addressbook",
+    "network",
+    "storage"
+  ]
+}

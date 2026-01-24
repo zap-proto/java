@@ -1,0 +1,283 @@
+---
+title: Serialize
+description: API reference for standard (unpacked) serialization
+---
+
+The `Serialize` class provides methods for reading and writing ZAP messages using the standard (unpacked) wire format.
+
+## Package
+
+```java
+import org.capnproto.Serialize;
+```
+
+## Reading Methods
+
+### read(ReadableByteChannel bc)
+
+Reads a message from a channel with default options.
+
+```java
+try (FileInputStream fis = new FileInputStream("data.bin")) {
+    MessageReader reader = Serialize.read(fis.getChannel());
+    Person.Reader person = reader.getRoot(Person.factory);
+}
+```
+
+**Parameters:**
+- `bc` - Channel to read from
+
+**Returns:** `MessageReader` for the deserialized message
+
+**Throws:**
+- `IOException` - On I/O error or premature EOF
+- `DecodeException` - On invalid message format
+
+### read(ReadableByteChannel bc, ReaderOptions options)
+
+Reads a message with custom options.
+
+```java
+ReaderOptions options = new ReaderOptions(
+    64 * 1024 * 1024,  // 512 MB limit
+    128                 // deep nesting
+);
+
+MessageReader reader = Serialize.read(channel, options);
+```
+
+**Parameters:**
+- `bc` - Channel to read from
+- `options` - Reader configuration
+
+### read(ByteBuffer bb)
+
+Reads a message from a ByteBuffer.
+
+```java
+byte[] data = Files.readAllBytes(path);
+ByteBuffer buffer = ByteBuffer.wrap(data);
+
+MessageReader reader = Serialize.read(buffer);
+```
+
+**Parameters:**
+- `bb` - ByteBuffer positioned at message start
+
+**Returns:** `MessageReader`
+
+**Note:** After reading, `bb.position()` is at the end of the message.
+
+### read(ByteBuffer bb, ReaderOptions options)
+
+Reads from ByteBuffer with options.
+
+```java
+MessageReader reader = Serialize.read(buffer, options);
+```
+
+### tryRead(ReadableByteChannel bc)
+
+Attempts to read a message, returning empty on EOF.
+
+```java
+Optional<MessageReader> result = Serialize.tryRead(channel);
+
+if (result.isPresent()) {
+    MessageReader reader = result.get();
+    // process message
+} else {
+    // end of stream
+}
+```
+
+**Returns:** `Optional<MessageReader>` - empty if EOF on first read
+
+**Use case:** Reading streams of unknown length.
+
+### tryRead(ReadableByteChannel bc, ReaderOptions options)
+
+Attempts to read with custom options.
+
+```java
+Optional<MessageReader> result = Serialize.tryRead(channel, options);
+```
+
+## Writing Methods
+
+### write(WritableByteChannel outputChannel, MessageBuilder message)
+
+Writes a message to a channel.
+
+```java
+try (FileOutputStream fos = new FileOutputStream("output.bin")) {
+    Serialize.write(fos.getChannel(), message);
+}
+```
+
+**Parameters:**
+- `outputChannel` - Destination channel
+- `message` - Message to serialize
+
+**Throws:** `IOException` on write failure
+
+### write(WritableByteChannel outputChannel, MessageReader message)
+
+Writes a message reader to a channel (for forwarding/copying).
+
+```java
+MessageReader reader = Serialize.read(inputChannel);
+// Forward without modification
+Serialize.write(outputChannel, reader);
+```
+
+## Utility Methods
+
+### computeSerializedSizeInWords(MessageBuilder message)
+
+Calculates the serialized size of a message.
+
+```java
+long words = Serialize.computeSerializedSizeInWords(message);
+long bytes = words * 8;
+
+System.out.println("Message size: " + bytes + " bytes");
+```
+
+**Returns:** Size in 8-byte words
+
+### fillBuffer(ByteBuffer buffer, ReadableByteChannel bc)
+
+Fills a buffer completely from a channel.
+
+```java
+ByteBuffer header = ByteBuffer.allocate(8);
+Serialize.fillBuffer(header, channel);
+```
+
+**Throws:** `IOException` if EOF before buffer is full
+
+## Wire Format
+
+The standard format consists of:
+
+1. **Segment table header**
+   - 4 bytes: segment count minus one
+   - 4 bytes per segment: segment size in words
+   - 0 or 4 bytes: padding to 8-byte boundary
+
+2. **Segment data**
+   - Each segment's raw bytes in sequence
+
+Example for 2-segment message:
+```
+[segment count - 1 = 1] [size 0] [size 1] [padding]
+[segment 0 data...] [segment 1 data...]
+```
+
+## Usage Examples
+
+### Reading Multiple Messages
+
+```java
+try (FileInputStream fis = new FileInputStream("stream.bin")) {
+    ReadableByteChannel channel = fis.getChannel();
+
+    Optional<MessageReader> maybeReader;
+    while ((maybeReader = Serialize.tryRead(channel)).isPresent()) {
+        MessageReader reader = maybeReader.get();
+        Record.Reader record = reader.getRoot(Record.factory);
+        processRecord(record);
+    }
+}
+```
+
+### Writing Multiple Messages
+
+```java
+try (FileOutputStream fos = new FileOutputStream("stream.bin")) {
+    WritableByteChannel channel = fos.getChannel();
+
+    for (Data item : items) {
+        MessageBuilder message = new MessageBuilder();
+        Record.Builder record = message.initRoot(Record.factory);
+        record.setData(item.value);
+
+        Serialize.write(channel, message);
+    }
+}
+```
+
+### Network I/O
+
+```java
+// Server
+try (ServerSocketChannel server = ServerSocketChannel.open()) {
+    server.bind(new InetSocketAddress(9000));
+
+    while (true) {
+        SocketChannel client = server.accept();
+        MessageReader request = Serialize.read(client);
+        // ... process request ...
+
+        MessageBuilder response = createResponse();
+        Serialize.write(client, response);
+        client.close();
+    }
+}
+
+// Client
+try (SocketChannel socket = SocketChannel.open()) {
+    socket.connect(new InetSocketAddress("localhost", 9000));
+
+    Serialize.write(socket, request);
+    MessageReader response = Serialize.read(socket);
+}
+```
+
+### Size Validation
+
+```java
+MessageBuilder message = buildLargeMessage();
+
+long sizeWords = Serialize.computeSerializedSizeInWords(message);
+long sizeBytes = sizeWords * 8;
+
+if (sizeBytes > MAX_MESSAGE_SIZE) {
+    throw new IllegalStateException("Message too large: " + sizeBytes);
+}
+
+Serialize.write(channel, message);
+```
+
+## Error Handling
+
+```java
+try {
+    MessageReader reader = Serialize.read(channel);
+} catch (DecodeException e) {
+    // Invalid message format:
+    // - Too many segments (> 512)
+    // - Segment too large
+    // - Traversal limit exceeded
+    log.error("Malformed message", e);
+} catch (IOException e) {
+    // I/O errors:
+    // - Premature EOF
+    // - Channel closed
+    // - Read returned 0 (non-blocking mode)
+    log.error("Read failed", e);
+}
+```
+
+## Performance Notes
+
+1. **Channel vs ByteBuffer**: Direct ByteBuffer reads avoid an extra copy
+2. **Pre-allocated buffers**: Reuse ByteBuffers for repeated reads
+3. **Blocking I/O required**: Channels must be in blocking mode
+
+## See Also
+
+- [SerializePacked](/docs/api-reference/serialize-packed) - Compressed format
+- [MessageBuilder](/docs/api-reference/message-builder) - Building messages
+- [MessageReader](/docs/api-reference/message-reader) - Reading messages

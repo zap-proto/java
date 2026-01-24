@@ -1,0 +1,74 @@
+---
+title: MessageReader
+description: API reference for the MessageReader class
+---
+
+`MessageReader` provides read-only access to deserialized ZAP messages. It maintains the zero-copy property, reading data directly from the underlying byte buffers.
+
+## Package
+
+```java
+import org.capnproto.MessageReader;
+```
+
+## Constructor
+
+### `MessageReader(ByteBuffer[] segmentSlices, ReaderOptions options)`
+
+Creates a message reader from segment data.
+
+```java
+ByteBuffer[] segments = loadSegments();
+ReaderOptions options = ReaderOptions.DEFAULT_READER_OPTIONS;
+
+MessageReader reader = new MessageReader(segments, options);
+```
+
+**Parameters:**
+- `segmentSlices` - Array of message segments
+- `options` - Read configuration options
+
+**Note:** Typically created via `Serialize.read()` rather than directly.
+
+## Methods
+
+### `getRoot(FromPointerReader<T> factory)`
+
+Returns a reader for the root struct.
+
+```java
+Person.Reader person = reader.getRoot(Person.factory);
+System.out.println(person.getName());
+```
+
+**Returns:** Reader for the root struct
+
+**Type Parameters:**
+- `T` - The reader type
+
+## Usage Examples
+
+### Reading from a File
+
+```java
+try (FileInputStream fis = new FileInputStream("data.capnp");
+     FileChannel channel = fis.getChannel()) {
+    MessageReader message = Serialize.read(channel);
+    AddressBook.Reader addressBook = message.getRoot(AddressBook.factory);
+    
+    for (Person.Reader person : addressBook.getPeople()) {
+        System.out.println(person.getName());
+    }
+}
+```
+
+### Reading from a ByteBuffer
+
+```java
+ByteBuffer buffer = ByteBuffer.allocate(1024);
+// ... fill buffer with ZAP data ...
+buffer.flip();
+
+MessageReader message = Serialize.read(buffer);
+MyStruct.Reader root = message.getRoot(MyStruct.factory);
+```

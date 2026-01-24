@@ -1,0 +1,71 @@
+---
+title: API Reference
+description: Complete reference for ZAP Java runtime classes
+---
+
+The ZAP Java runtime provides classes for building, serializing, and reading ZAP messages. This reference covers the core API.
+
+## Core Classes
+
+| Class | Description |
+|-------|-------------|
+| [MessageBuilder](/docs/api-reference/message-builder) | Construct and populate ZAP messages |
+| [MessageReader](/docs/api-reference/message-reader) | Read deserialized ZAP messages |
+| [Serialize](/docs/api-reference/serialize) | Standard (unpacked) serialization |
+| [SerializePacked](/docs/api-reference/serialize-packed) | Packed (compressed) serialization |
+
+## Data Types
+
+| Class | Description |
+|-------|-------------|
+| `Text` | UTF-8 text strings |
+| `Data` | Binary byte sequences |
+| `StructBuilder` | Base class for struct builders |
+| `StructReader` | Base class for struct readers |
+| `StructList` | List of structs |
+| `PrimitiveList` | Lists of primitive types |
+| `TextList` | List of text strings |
+| `DataList` | List of binary data |
+
+## Configuration
+
+| Class | Description |
+|-------|-------------|
+| `ReaderOptions` | Configure read limits and nesting |
+| `Allocator` | Interface for custom memory allocation |
+| `DefaultAllocator` | Default heap-based allocator |
+
+## Exceptions
+
+| Class | Description |
+|-------|-------------|
+| `DecodeException` | Thrown when message structure is invalid |
+
+## Package Structure
+
+```
+org.capnproto
+├── MessageBuilder          # Message construction
+├── MessageReader           # Message reading
+├── Serialize               # Standard serialization
+├── SerializePacked         # Packed serialization
+├── Text                    # Text type (Reader/Builder)
+├── Data                    # Binary data type
+├── StructBuilder           # Base struct builder
+├── StructReader            # Base struct reader
+├── StructList              # Struct list container
+├── PrimitiveList           # Primitive list types
+│   ├── Byte
+│   ├── Short
+│   ├── Int
+│   ├── Long
+│   ├── Float
+│   └── Double
+├── TextList                # Text list container
+├── DataList                # Data list container
+├── ReaderOptions           # Read configuration
+├── Allocator               # Memory allocation interface
+├── DefaultAllocator        # Default allocator
+├── DecodeException         # Decode error
+└── Void                    # Void type singleton
+```

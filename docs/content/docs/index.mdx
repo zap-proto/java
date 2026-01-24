@@ -1,0 +1,68 @@
+---
+title: ZAP Java
+description: A pure Java implementation of the ZAP serialization protocol
+---
+
+ZAP is an insanely fast data interchange format and capability-based RPC system. This library provides a pure Java implementation with zero-copy deserialization and efficient memory usage.
+
+## Features
+
+- **Zero-copy deserialization**: Read data directly from byte buffers without parsing overhead
+- **Schema-driven**: Define your data structures in `.capnp` schema files
+- **Type-safe**: Generated Java code provides compile-time type checking
+- **Efficient**: Minimal memory allocations during serialization and deserialization
+- **Pure Java**: No native dependencies required
+
+## Why ZAP?
+
+Traditional serialization formats like JSON or Protocol Buffers require parsing and converting data into language-native objects. ZAP eliminates this overhead by using a wire format that can be read directly without conversion.
+
+```java
+// Read a message directly from a file
+MessageReader message = Serialize.read(channel);
+AddressBook.Reader addressBook = message.getRoot(AddressBook.factory);
+
+// Access data with no parsing overhead
+for (Person.Reader person : addressBook.getPeople()) {
+    System.out.println(person.getName());
+}
+```
+
+## Quick Example
+
+Define a schema:
+
+```capnp
+@0x9eb32e19f86ee174;
+
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+}
+```
+
+Use in Java:
+
+```java
+// Build a message
+MessageBuilder message = new MessageBuilder();
+Person.Builder person = message.initRoot(Person.factory);
+person.setId(123);
+person.setName("Alice");
+person.setEmail("alice@example.com");
+
+// Serialize
+Serialize.write(outputChannel, message);
+```
+
+## Requirements
+
+- Java 11 or later
+- ZAP compiler (`capnp`) for code generation
+
+## Next Steps
+
+- [Installation](/docs/installation) - Add ZAP to your project
+- [Quick Start](/docs/quickstart) - Build your first ZAP application
+- [Schema Guide](/docs/schema) - Learn the schema language and code generation

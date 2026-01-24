@@ -1,0 +1,359 @@
+---
+title: Schema Language
+description: Define data structures with ZAP schemas and generate Java code
+---
+
+ZAP schemas define your data structures in a language-independent format. The `capnp` compiler generates type-safe Java code from these schemas.
+
+## Schema Basics
+
+Every schema file starts with a unique ID and Java annotations:
+
+```capnp
+@0x85150b117366d14b;  # Unique file ID
+
+using Java = import "/capnp/java.capnp";
+$Java.package("com.example.myapp");
+$Java.outerClassname("MySchema");
+```
+
+Generate a unique ID with:
+```bash
+capnp id
+```
+
+## Primitive Types
+
+ZAP supports these primitive types:
+
+| ZAP | Java Type | Size |
+|-------------|-----------|------|
+| `Void` | `org.capnproto.Void` | 0 bits |
+| `Bool` | `boolean` | 1 bit |
+| `Int8` | `byte` | 8 bits |
+| `Int16` | `short` | 16 bits |
+| `Int32` | `int` | 32 bits |
+| `Int64` | `long` | 64 bits |
+| `UInt8` | `byte` | 8 bits |
+| `UInt16` | `short` | 16 bits |
+| `UInt32` | `int` | 32 bits |
+| `UInt64` | `long` | 64 bits |
+| `Float32` | `float` | 32 bits |
+| `Float64` | `double` | 64 bits |
+| `Text` | `Text.Reader` / `Text.Builder` | pointer |
+| `Data` | `Data.Reader` / `Data.Builder` | pointer |
+
+## Structs
+
+Structs are the primary data container:
+
+```capnp
+struct Point {
+  x @0 :Float64;
+  y @1 :Float64;
+  z @2 :Float64;
+}
+```
+
+Field ordinals (`@0`, `@1`, etc.) determine binary layout and must never change for backward compatibility.
+
+### Generated Java Code
+
+For each struct, the compiler generates:
+
+```java
+public class Point {
+    public static final StructFactory<Builder, Reader> factory = ...;
+
+    public static final class Reader extends StructReader {
+        public double getX() { ... }
+        public double getY() { ... }
+        public double getZ() { ... }
+    }
+
+    public static final class Builder extends StructBuilder {
+        public double getX() { ... }
+        public void setX(double value) { ... }
+        // ... same for y, z
+    }
+}
+```
+
+### Default Values
+
+Specify default values inline:
+
+```capnp
+struct Config {
+  timeout @0 :UInt32 = 30000;
+  hostname @1 :Text = "localhost";
+  enabled @2 :Bool = true;
+}
+```
+
+## Nested Structs
+
+Structs can be nested:
+
+```capnp
+struct Person {
+  name @0 :Text;
+  address @1 :Address;
+
+  struct Address {
+    street @0 :Text;
+    city @1 :Text;
+    zip @2 :Text;
+  }
+}
+```
+
+Access in Java:
+
+```java
+Person.Builder person = message.initRoot(Person.factory);
+person.setName("Alice");
+
+Person.Address.Builder addr = person.initAddress();
+addr.setStreet("123 Main St");
+addr.setCity("Boston");
+addr.setZip("02101");
+```
+
+## Enums
+
+Define enumerated types:
+
+```capnp
+enum Color {
+  red @0;
+  green @1;
+  blue @2;
+}
+
+struct Shape {
+  color @0 :Color;
+}
+```
+
+Use in Java:
+
+```java
+shape.setColor(Color.RED);
+
+Color c = shape.getColor();
+switch (c) {
+    case RED -> System.out.println("Red");
+    case GREEN -> System.out.println("Green");
+    case BLUE -> System.out.println("Blue");
+}
+```
+
+## Lists
+
+Lists hold sequences of values:
+
+```capnp
+struct Document {
+  tags @0 :List(Text);
+  scores @1 :List(Float64);
+  items @2 :List(Item);
+
+  struct Item {
+    name @0 :Text;
+    value @1 :Int32;
+  }
+}
+```
+
+Working with lists in Java:
+
+```java
+// Primitive list
+PrimitiveList.Double.Builder scores = doc.initScores(3);
+scores.set(0, 1.0);
+scores.set(1, 2.0);
+scores.set(2, 3.0);
+
+// Text list
+TextList.Builder tags = doc.initTags(2);
+tags.set(0, new Text.Reader("tag1"));
+tags.set(1, new Text.Reader("tag2"));
+
+// Struct list
+StructList.Builder<Document.Item.Builder> items = doc.initItems(2);
+items.get(0).setName("item1");
+items.get(0).setValue(100);
+```
+
+## Unions
+
+Unions allow one-of-many field selection:
+
+```capnp
+struct Result {
+  union {
+    success @0 :Text;
+    error @1 :Text;
+    pending @2 :Void;
+  }
+}
+```
+
+Using unions in Java:
+
+```java
+// Setting
+result.setSuccess("Done!");
+// or
+result.setError("Failed");
+// or
+result.setPending(org.capnproto.Void.VOID);
+
+// Reading
+switch (result.which()) {
+    case SUCCESS -> System.out.println("Success: " + result.getSuccess());
+    case ERROR -> System.out.println("Error: " + result.getError());
+    case PENDING -> System.out.println("Pending...");
+}
+```
+
+### Named Unions
+
+Groups can contain unions:
+
+```capnp
+struct Person {
+  name @0 :Text;
+
+  employment :union {
+    unemployed @1 :Void;
+    employer @2 :Text;
+    school @3 :Text;
+    selfEmployed @4 :Void;
+  }
+}
+```
+
+Access named unions:
+
+```java
+Person.Employment.Builder emp = person.getEmployment();
+emp.setEmployer("Acme Corp");
+
+// Reading
+Person.Employment.Reader emp = person.getEmployment();
+if (emp.which() == Person.Employment.Which.EMPLOYER) {
+    System.out.println("Works at: " + emp.getEmployer());
+}
+```
+
+## Groups
+
+Groups organize fields without adding a pointer:
+
+```capnp
+struct Rectangle {
+  topLeft :group {
+    x @0 :Float64;
+    y @1 :Float64;
+  }
+  bottomRight :group {
+    x @2 :Float64;
+    y @3 :Float64;
+  }
+}
+```
+
+Groups are accessed as nested readers/builders but share the parent struct's data section.
+
+## Constants
+
+Define compile-time constants:
+
+```capnp
+const defaultTimeout :UInt32 = 5000;
+const greeting :Text = "Hello, World!";
+```
+
+## Annotations
+
+Add metadata with annotations:
+
+```capnp
+annotation doc(struct, field) :Text;
+
+struct Person @0x... $doc("A person record") {
+  name @0 :Text $doc("Full name");
+  age @1 :UInt8 $doc("Age in years");
+}
+```
+
+## Schema Evolution
+
+ZAP supports forward and backward compatibility:
+
+### Safe Changes
+
+- Add new fields at the end (with new ordinals)
+- Add new enum values at the end
+- Rename fields (ordinals stay the same)
+- Change a non-union field to a union containing that field
+
+### Unsafe Changes
+
+- Remove fields (breaks readers expecting them)
+- Reorder field ordinals
+- Change field types
+- Remove enum values
+
+### Example Evolution
+
+Original:
+```capnp
+struct User {
+  id @0 :UInt64;
+  name @1 :Text;
+}
+```
+
+Updated (compatible):
+```capnp
+struct User {
+  id @0 :UInt64;
+  name @1 :Text;
+  email @2 :Text;     # New field
+  age @3 :UInt8 = 0;  # New field with default
+}
+```
+
+## Code Generation
+
+Generate Java code with:
+
+```bash
+# Single file
+capnp compile -ojava:src/main/java schema.capnp
+
+# Multiple files
+capnp compile -ojava:src/main/java *.capnp
+
+# With include path
+capnp compile -I/path/to/includes -ojava:out schema.capnp
+```
+
+The generated outer class contains all structs, enums, and factories defined in the schema.
+
+## Best Practices
+
+1. **Assign ordinals sequentially**: Start at 0, increment by 1
+2. **Never reuse ordinals**: Deleted fields should keep their ordinals reserved
+3. **Use defaults wisely**: Defaults save space but change interpretation
+4. **Prefer structs over primitives**: Easier to extend later
+5. **Use meaningful names**: Names are preserved in generated code
+6. **Document with annotations**: Add context for future maintainers
+
+## Next Steps
+
+- [Serialization](/docs/serialization) - Learn about wire formats
+- [API Reference](/docs/api-reference) - Complete class documentation

@@ -1,0 +1,316 @@
+---
+title: Network Protocol Example
+description: Client-server communication using ZAP
+---
+
+This example shows how to use ZAP for network communication between a client and server.
+
+## Schema
+
+Create `protocol.capnp`:
+
+```capnp
+@0xa1b2c3d4e5f67890;
+
+using Java = import "/capnp/java.capnp";
+$Java.package("com.example.protocol");
+$Java.outerClassname("Protocol");
+
+struct Request {
+  id @0 :UInt64;
+  operation :union {
+    ping @1 :Void;
+    echo @2 :Text;
+    compute @3 :ComputeOp;
+  }
+
+  struct ComputeOp {
+    a @0 :Int64;
+    b @1 :Int64;
+    op @2 :Op;
+
+    enum Op {
+      add @0;
+      subtract @1;
+      multiply @2;
+      divide @3;
+    }
+  }
+}
+
+struct Response {
+  id @0 :UInt64;
+  result :union {
+    ok @1 :Text;
+    error @2 :Text;
+    value @3 :Int64;
+  }
+}
+```
+
+## Server Implementation
+
+```java
+package com.example.protocol;
+
+import org.capnproto.*;
+import com.example.protocol.Protocol.*;
+import java.io.*;
+import java.net.*;
+import java.nio.channels.*;
+
+public class Server {
+    private final int port;
+
+    public Server(int port) {
+        this.port = port;
+    }
+
+    public void start() throws IOException {
+        try (ServerSocketChannel serverChannel = ServerSocketChannel.open()) {
+            serverChannel.bind(new InetSocketAddress(port));
+            System.out.println("Server listening on port " + port);
+
+            while (true) {
+                SocketChannel clientChannel = serverChannel.accept();
+                System.out.println("Client connected: " + clientChannel.getRemoteAddress());
+
+                // Handle client in new thread
+                new Thread(() -> handleClient(clientChannel)).start();
+            }
+        }
+    }
+
+    private void handleClient(SocketChannel channel) {
+        try {
+            while (channel.isConnected()) {
+                // Read request
+                MessageReader requestMsg = Serialize.read(channel);
+                Request.Reader request = requestMsg.getRoot(Request.factory);
+
+                // Process and send response
+                MessageBuilder responseMsg = processRequest(request);
+                Serialize.write(channel, responseMsg);
+            }
+        } catch (IOException e) {
+            System.out.println("Client disconnected");
+        } finally {
+            try {
+                channel.close();
+            } catch (IOException ignored) {}
+        }
+    }
+
+    private MessageBuilder processRequest(Request.Reader request) {
+        MessageBuilder responseMsg = new MessageBuilder();
+        Response.Builder response = responseMsg.initRoot(Response.factory);
+        response.setId(request.getId());
+
+        switch (request.getOperation().which()) {
+            case PING -> {
+                response.getResult().setOk("pong");
+            }
+
+            case ECHO -> {
+                String text = request.getOperation().getEcho().toString();
+                response.getResult().setOk(text);
+            }
+
+            case COMPUTE -> {
+                Request.ComputeOp.Reader op = request.getOperation().getCompute();
+                try {
+                    long result = compute(op);
+                    response.getResult().setValue(result);
+                } catch (ArithmeticException e) {
+                    response.getResult().setError(e.getMessage());
+                }
+            }
+        }
+
+        return responseMsg;
+    }
+
+    private long compute(Request.ComputeOp.Reader op) {
+        long a = op.getA();
+        long b = op.getB();
+
+        return switch (op.getOp()) {
+            case ADD -> a + b;
+            case SUBTRACT -> a - b;
+            case MULTIPLY -> a * b;
+            case DIVIDE -> {
+                if (b == 0) throw new ArithmeticException("Division by zero");
+                yield a / b;
+            }
+        };
+    }
+
+    public static void main(String[] args) throws IOException {
+        int port = args.length > 0 ? Integer.parseInt(args[0]) : 9000;
+        new Server(port).start();
+    }
+}
+```
+
+## Client Implementation
+
+```java
+package com.example.protocol;
+
+import org.capnproto.*;
+import com.example.protocol.Protocol.*;
+import java.io.*;
+import java.net.*;
+import java.nio.channels.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class Client implements AutoCloseable {
+    private final SocketChannel channel;
+    private final AtomicLong requestId = new AtomicLong(0);
+
+    public Client(String host, int port) throws IOException {
+        this.channel = SocketChannel.open();
+        this.channel.connect(new InetSocketAddress(host, port));
+    }
+
+    public String ping() throws IOException {
+        MessageBuilder request = new MessageBuilder();
+        Request.Builder req = request.initRoot(Request.factory);
+        req.setId(requestId.incrementAndGet());
+        req.getOperation().setPing(Void.VOID);
+
+        return sendAndReceive(request);
+    }
+
+    public String echo(String message) throws IOException {
+        MessageBuilder request = new MessageBuilder();
+        Request.Builder req = request.initRoot(Request.factory);
+        req.setId(requestId.incrementAndGet());
+        req.getOperation().setEcho(message);
+
+        return sendAndReceive(request);
+    }
+
+    public long compute(long a, long b, Request.ComputeOp.Op operation) throws IOException {
+        MessageBuilder request = new MessageBuilder();
+        Request.Builder req = request.initRoot(Request.factory);
+        req.setId(requestId.incrementAndGet());
+
+        Request.ComputeOp.Builder op = req.getOperation().initCompute();
+        op.setA(a);
+        op.setB(b);
+        op.setOp(operation);
+
+        Serialize.write(channel, request);
+        MessageReader responseMsg = Serialize.read(channel);
+        Response.Reader response = responseMsg.getRoot(Response.factory);
+
+        return switch (response.getResult().which()) {
+            case VALUE -> response.getResult().getValue();
+            case ERROR -> throw new RuntimeException(response.getResult().getError().toString());
+            default -> throw new RuntimeException("Unexpected response type");
+        };
+    }
+
+    private String sendAndReceive(MessageBuilder request) throws IOException {
+        Serialize.write(channel, request);
+        MessageReader responseMsg = Serialize.read(channel);
+        Response.Reader response = responseMsg.getRoot(Response.factory);
+
+        return switch (response.getResult().which()) {
+            case OK -> response.getResult().getOk().toString();
+            case ERROR -> throw new RuntimeException(response.getResult().getError().toString());
+            default -> throw new RuntimeException("Unexpected response type");
+        };
+    }
+
+    @Override
+    public void close() throws IOException {
+        channel.close();
+    }
+
+    public static void main(String[] args) throws IOException {
+        String host = args.length > 0 ? args[0] : "localhost";
+        int port = args.length > 1 ? Integer.parseInt(args[1]) : 9000;
+
+        try (Client client = new Client(host, port)) {
+            // Test ping
+            System.out.println("Ping: " + client.ping());
+
+            // Test echo
+            System.out.println("Echo: " + client.echo("Hello, ZAP!"));
+
+            // Test compute
+            System.out.println("10 + 5 = " + client.compute(10, 5, Request.ComputeOp.Op.ADD));
+            System.out.println("10 - 5 = " + client.compute(10, 5, Request.ComputeOp.Op.SUBTRACT));
+            System.out.println("10 * 5 = " + client.compute(10, 5, Request.ComputeOp.Op.MULTIPLY));
+            System.out.println("10 / 5 = " + client.compute(10, 5, Request.ComputeOp.Op.DIVIDE));
+        }
+    }
+}
+```
+
+## Running the Example
+
+Terminal 1 (start server):
+```bash
+java -cp target/classes com.example.protocol.Server 9000
+```
+
+Terminal 2 (run client):
+```bash
+java -cp target/classes com.example.protocol.Client localhost 9000
+```
+
+Output:
+```
+Ping: pong
+Echo: Hello, ZAP!
+10 + 5 = 15
+10 - 5 = 5
+10 * 5 = 50
+10 / 5 = 2
+```
+
+## Using Packed Format for Network
+
+For bandwidth-constrained networks, use packed serialization:
+
+```java
+// Server - reading packed
+BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(channel);
+MessageReader request = SerializePacked.read(bis);
+
+// Server - writing packed
+BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(channel);
+SerializePacked.write(bos, response);
+bos.flush();
+
+// Client - same pattern
+```
+
+## Error Handling
+
+Production code should handle:
+
+```java
+try {
+    MessageReader msg = Serialize.read(channel);
+} catch (DecodeException e) {
+    // Malformed message - close connection
+    log.error("Protocol error", e);
+    channel.close();
+} catch (IOException e) {
+    // Network error
+    log.error("Network error", e);
+    reconnect();
+}
+```
+
+## Key Patterns
+
+1. **Request-response correlation**: Use `id` field to match responses
+2. **Union for variants**: Different request/response types in one message
+3. **Error handling**: Use union variant for success vs error
+4. **Thread-per-client**: Simple model for concurrent connections
+5. **Blocking I/O**: ZAP requires blocking channels

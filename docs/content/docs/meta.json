@@ -1,0 +1,13 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "installation",
+    "quickstart",
+    "schema",
+    "serialization",
+    "---Guides---",
+    "api-reference",
+    "examples"
+  ]
+}

@@ -1,0 +1,387 @@
+---
+title: Serialization
+description: Serialize and deserialize ZAP messages using MessageBuilder and readers
+---
+
+ZAP provides two serialization formats: standard (unpacked) and packed. Both preserve the zero-copy property on read, but packed format trades CPU time for smaller size.
+
+## MessageBuilder
+
+`MessageBuilder` is the entry point for creating ZAP messages:
+
+```java
+import org.capnproto.MessageBuilder;
+
+// Default constructor
+MessageBuilder message = new MessageBuilder();
+
+// With initial segment size (words)
+MessageBuilder message = new MessageBuilder(1024);
+
+// With allocation strategy
+MessageBuilder message = new MessageBuilder(
+    1024,
+    BuilderArena.AllocationStrategy.GROW_HEURISTICALLY
+);
+```
+
+### Allocation Strategies
+
+- `FIXED_SIZE`: Each new segment has the same size as the first
+- `GROW_HEURISTICALLY`: Segments grow based on usage patterns
+
+### Getting the Root
+
+Initialize or access the root struct:
+
+```java
+// Initialize new root (clears any existing)
+Person.Builder person = message.initRoot(Person.factory);
+
+// Get existing root
+Person.Builder person = message.getRoot(Person.factory);
+
+// Set root from a reader
+message.setRoot(Person.factory, existingReader);
+```
+
+## Standard Serialization
+
+The standard format preserves exact binary layout:
+
+```java
+import org.capnproto.Serialize;
+import java.nio.channels.*;
+
+// Write to channel
+try (FileOutputStream fos = new FileOutputStream("data.bin")) {
+    WritableByteChannel channel = fos.getChannel();
+    Serialize.write(channel, message);
+}
+
+// Read from channel
+try (FileInputStream fis = new FileInputStream("data.bin")) {
+    ReadableByteChannel channel = fis.getChannel();
+    MessageReader reader = Serialize.read(channel);
+    Person.Reader person = reader.getRoot(Person.factory);
+}
+```
+
+### Reading with Options
+
+Configure read behavior with `ReaderOptions`:
+
+```java
+import org.capnproto.ReaderOptions;
+
+ReaderOptions options = new ReaderOptions(
+    64 * 1024 * 1024,  // traversalLimitInWords (64M words = 512MB)
+    64                  // nestingLimit
+);
+
+MessageReader reader = Serialize.read(channel, options);
+```
+
+### ByteBuffer Operations
+
+Read from and work with `ByteBuffer`:
+
+```java
+import java.nio.ByteBuffer;
+
+// Read from ByteBuffer
+ByteBuffer buffer = ByteBuffer.wrap(bytes);
+MessageReader reader = Serialize.read(buffer);
+
+// Get segments for output
+ByteBuffer[] segments = message.getSegmentsForOutput();
+```
+
+### Optional Read
+
+Handle EOF gracefully:
+
+```java
+import java.util.Optional;
+
+Optional<MessageReader> maybeReader = Serialize.tryRead(channel);
+if (maybeReader.isPresent()) {
+    MessageReader reader = maybeReader.get();
+    // process message
+} else {
+    // end of stream
+}
+```
+
+## Packed Serialization
+
+Packed format compresses sparse data:
+
+```java
+import org.capnproto.SerializePacked;
+
+// Write packed
+SerializePacked.writeToUnbuffered(channel, message);
+
+// Read packed
+MessageReader reader = SerializePacked.readFromUnbuffered(channel);
+```
+
+### Buffered I/O
+
+For better performance with packed format, use buffered streams:
+
+```java
+import org.capnproto.BufferedInputStream;
+import org.capnproto.BufferedOutputStream;
+
+// Buffered write
+try (BufferedOutputStreamWrapper out = new BufferedOutputStreamWrapper(channel)) {
+    SerializePacked.write(out, message);
+}
+
+// Buffered read
+try (BufferedInputStreamWrapper in = new BufferedInputStreamWrapper(channel)) {
+    MessageReader reader = SerializePacked.read(in);
+}
+```
+
+## MessageReader
+
+`MessageReader` provides read access to deserialized messages:
+
+```java
+MessageReader reader = Serialize.read(channel);
+
+// Get the root struct
+Person.Reader person = reader.getRoot(Person.factory);
+
+// Access fields (zero-copy)
+String name = person.getName().toString();
+int id = person.getId();
+```
+
+### Reader Options
+
+Default options:
+
+```java
+ReaderOptions.DEFAULT_READER_OPTIONS
+// traversalLimitInWords: 8 * 1024 * 1024 (64MB)
+// nestingLimit: 64
+```
+
+Custom options:
+
+```java
+ReaderOptions options = new ReaderOptions(
+    1024 * 1024 * 1024,  // 8GB traversal limit
+    128                   // deeper nesting
+);
+```
+
+## Working with Text and Data
+
+### Text Fields
+
+```java
+// Writing
+person.setName("Alice");
+
+// Or with Text.Reader
+person.setName(new Text.Reader("Alice"));
+
+// Reading
+Text.Reader name = person.getName();
+String nameStr = name.toString();
+
+// Check if set
+if (person.hasName()) {
+    System.out.println(person.getName());
+}
+```
+
+### Data Fields (Binary)
+
+```java
+// Writing
+byte[] bytes = {0x01, 0x02, 0x03};
+record.setPayload(bytes);
+
+// Or with Data.Reader
+record.setPayload(new Data.Reader(bytes));
+
+// Reading
+Data.Reader payload = record.getPayload();
+ByteBuffer buffer = payload.asByteBuffer();
+// Or
+byte[] array = new byte[payload.size()];
+payload.asByteBuffer().get(array);
+```
+
+## Lists
+
+### Primitive Lists
+
+```java
+// Writing
+PrimitiveList.Int.Builder ids = container.initIds(100);
+for (int i = 0; i < 100; i++) {
+    ids.set(i, i);
+}
+
+// Reading
+PrimitiveList.Int.Reader ids = container.getIds();
+for (int i = 0; i < ids.size(); i++) {
+    System.out.println(ids.get(i));
+}
+```
+
+### Text Lists
+
+```java
+// Writing
+TextList.Builder tags = item.initTags(3);
+tags.set(0, new Text.Reader("java"));
+tags.set(1, new Text.Reader("capnproto"));
+tags.set(2, new Text.Reader("serialization"));
+
+// Reading
+for (Text.Reader tag : item.getTags()) {
+    System.out.println(tag);
+}
+```
+
+### Struct Lists
+
+```java
+// Writing
+StructList.Builder<Person.Builder> people = addressBook.initPeople(2);
+people.get(0).setName("Alice");
+people.get(1).setName("Bob");
+
+// Reading
+for (Person.Reader person : addressBook.getPeople()) {
+    System.out.println(person.getName());
+}
+```
+
+## Memory Management
+
+### Reusing Buffers
+
+Avoid allocations by reusing the first segment buffer:
+
+```java
+// Create initial message
+MessageBuilder message1 = new MessageBuilder();
+// ... build message1 ...
+
+// Get the buffer before clearing
+ByteBuffer[] segments = message1.getSegmentsForOutput();
+// ... write segments ...
+
+// Clear for reuse
+message1.clearFirstSegment();
+
+// Create new message reusing buffer
+MessageBuilder message2 = new MessageBuilder(segments[0]);
+// ... build message2 ...
+```
+
+### Custom Allocator
+
+Implement `Allocator` for custom memory management:
+
+```java
+import org.capnproto.Allocator;
+
+public class PooledAllocator implements Allocator {
+    private final Queue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+
+    @Override
+    public ByteBuffer allocate(int minimumSize) {
+        ByteBuffer buffer = pool.poll();
+        if (buffer == null || buffer.capacity() < minimumSize) {
+            buffer = ByteBuffer.allocateDirect(minimumSize);
+            buffer.order(ByteOrder.LITTLE_ENDIAN);
+        }
+        return buffer;
+    }
+
+    public void release(ByteBuffer buffer) {
+        buffer.clear();
+        pool.offer(buffer);
+    }
+}
+```
+
+Use with MessageBuilder:
+
+```java
+PooledAllocator allocator = new PooledAllocator();
+MessageBuilder message = new MessageBuilder(allocator);
+```
+
+## Streaming Multiple Messages
+
+### Writing a Stream
+
+```java
+try (FileOutputStream fos = new FileOutputStream("messages.bin")) {
+    WritableByteChannel channel = fos.getChannel();
+
+    for (int i = 0; i < 1000; i++) {
+        MessageBuilder message = new MessageBuilder();
+        Record.Builder record = message.initRoot(Record.factory);
+        record.setId(i);
+        record.setData("Record " + i);
+
+        Serialize.write(channel, message);
+    }
+}
+```
+
+### Reading a Stream
+
+```java
+try (FileInputStream fis = new FileInputStream("messages.bin")) {
+    ReadableByteChannel channel = fis.getChannel();
+
+    Optional<MessageReader> maybeReader;
+    while ((maybeReader = Serialize.tryRead(channel)).isPresent()) {
+        MessageReader reader = maybeReader.get();
+        Record.Reader record = reader.getRoot(Record.factory);
+        System.out.println(record.getId() + ": " + record.getData());
+    }
+}
+```
+
+## Performance Considerations
+
+1. **Use packed format for storage**: Smaller files, acceptable CPU overhead
+2. **Use standard format for IPC**: Faster serialization, zero-copy reads
+3. **Pre-size segments**: Use `new MessageBuilder(expectedWords)` to reduce allocations
+4. **Reuse buffers**: Call `clearFirstSegment()` and pass to new builders
+5. **Use buffered I/O**: Wrap channels in `BufferedInputStream/OutputStream` for packed format
+
+## Error Handling
+
+```java
+import org.capnproto.DecodeException;
+
+try {
+    MessageReader reader = Serialize.read(channel);
+} catch (DecodeException e) {
+    // Malformed message structure
+    System.err.println("Invalid ZAP message: " + e.getMessage());
+} catch (IOException e) {
+    // I/O error
+    System.err.println("Failed to read: " + e.getMessage());
+}
+```
+
+## Next Steps
+
+- [API Reference](/docs/api-reference) - Complete class documentation
+- [Examples](/docs/examples) - Real-world usage patterns

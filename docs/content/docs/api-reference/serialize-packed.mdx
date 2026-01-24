@@ -1,0 +1,269 @@
+---
+title: SerializePacked
+description: API reference for packed (compressed) serialization
+---
+
+The `SerializePacked` class provides methods for reading and writing ZAP messages using the packed wire format, which compresses sparse data for smaller message sizes.
+
+## Package
+
+```java
+import org.capnproto.SerializePacked;
+```
+
+## Overview
+
+Packed format compresses ZAP messages by:
+- Encoding zero bytes efficiently (common in sparse data)
+- Using a bitmap to indicate which bytes in each word are non-zero
+- Typical compression ratio: 2-10x smaller than standard format
+
+Trade-off: Slightly slower than standard format due to compression/decompression.
+
+## Reading Methods
+
+### readFromUnbuffered(ReadableByteChannel input)
+
+Reads a packed message from an unbuffered channel.
+
+```java
+try (FileInputStream fis = new FileInputStream("data.packed")) {
+    MessageReader reader = SerializePacked.readFromUnbuffered(fis.getChannel());
+    Person.Reader person = reader.getRoot(Person.factory);
+}
+```
+
+**Parameters:**
+- `input` - Channel to read from
+
+**Returns:** `MessageReader`
+
+### readFromUnbuffered(ReadableByteChannel input, ReaderOptions options)
+
+Reads with custom options.
+
+```java
+ReaderOptions options = new ReaderOptions(64 * 1024 * 1024, 64);
+MessageReader reader = SerializePacked.readFromUnbuffered(channel, options);
+```
+
+### read(BufferedInputStream input)
+
+Reads from a buffered input stream for better performance.
+
+```java
+try (BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(channel)) {
+    MessageReader reader = SerializePacked.read(bis);
+}
+```
+
+**Parameters:**
+- `input` - Buffered input stream
+
+### read(BufferedInputStream input, ReaderOptions options)
+
+Reads with options from buffered stream.
+
+```java
+MessageReader reader = SerializePacked.read(bufferedInput, options);
+```
+
+## Writing Methods
+
+### writeToUnbuffered(WritableByteChannel output, MessageBuilder message)
+
+Writes a packed message to an unbuffered channel.
+
+```java
+try (FileOutputStream fos = new FileOutputStream("data.packed")) {
+    SerializePacked.writeToUnbuffered(fos.getChannel(), message);
+}
+```
+
+**Parameters:**
+- `output` - Destination channel
+- `message` - Message to serialize
+
+### write(BufferedOutputStream output, MessageBuilder message)
+
+Writes to a buffered output stream for better performance.
+
+```java
+try (BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(channel)) {
+    SerializePacked.write(bos, message);
+}
+```
+
+## Buffered I/O Classes
+
+For best performance with packed format, use the provided buffered wrappers.
+
+### BufferedInputStreamWrapper
+
+```java
+import org.capnproto.BufferedInputStreamWrapper;
+
+try (FileInputStream fis = new FileInputStream("data.packed")) {
+    BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(fis.getChannel());
+    MessageReader reader = SerializePacked.read(bis);
+}
+```
+
+### BufferedOutputStreamWrapper
+
+```java
+import org.capnproto.BufferedOutputStreamWrapper;
+
+try (FileOutputStream fos = new FileOutputStream("data.packed")) {
+    BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(fos.getChannel());
+    SerializePacked.write(bos, message);
+    bos.flush();
+}
+```
+
+## Packed Format Encoding
+
+Each 8-byte word is encoded as:
+1. **Tag byte**: Bitmap indicating which of 8 bytes are non-zero
+2. **Non-zero bytes**: Only bytes marked in the tag
+
+Special cases:
+- `0x00` tag: Followed by count of zero words
+- `0xFF` tag: Followed by all 8 bytes, then count of literal words
+
+Example:
+```
+Original: 08 00 00 00 03 00 02 00
+Tag:      0x95 (bits 0, 2, 4, 7 set)
+Packed:   95 08 03 02
+```
+
+## Usage Examples
+
+### File I/O
+
+```java
+// Write packed
+MessageBuilder message = new MessageBuilder();
+Record.Builder record = message.initRoot(Record.factory);
+record.setId(123);
+record.setData("Hello, World!");
+
+try (FileOutputStream fos = new FileOutputStream("record.packed")) {
+    SerializePacked.writeToUnbuffered(fos.getChannel(), message);
+}
+
+// Read packed
+try (FileInputStream fis = new FileInputStream("record.packed")) {
+    MessageReader reader = SerializePacked.readFromUnbuffered(fis.getChannel());
+    Record.Reader r = reader.getRoot(Record.factory);
+    System.out.println(r.getData());
+}
+```
+
+### High-Performance Streaming
+
+```java
+// Writing many messages with buffering
+try (FileOutputStream fos = new FileOutputStream("stream.packed");
+     BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(fos.getChannel())) {
+
+    for (int i = 0; i < 10000; i++) {
+        MessageBuilder message = new MessageBuilder();
+        Record.Builder record = message.initRoot(Record.factory);
+        record.setId(i);
+
+        SerializePacked.write(bos, message);
+    }
+    bos.flush();
+}
+
+// Reading many messages with buffering
+try (FileInputStream fis = new FileInputStream("stream.packed");
+     BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(fis.getChannel())) {
+
+    // Note: tryRead not available for packed format
+    // Use a framing protocol or know the message count
+    for (int i = 0; i < 10000; i++) {
+        MessageReader reader = SerializePacked.read(bis);
+        Record.Reader record = reader.getRoot(Record.factory);
+        process(record);
+    }
+}
+```
+
+### Network Protocol
+
+```java
+// Send packed over network
+public void sendMessage(SocketChannel socket, MessageBuilder message) throws IOException {
+    BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(socket);
+    SerializePacked.write(bos, message);
+    bos.flush();
+}
+
+// Receive packed from network
+public MessageReader receiveMessage(SocketChannel socket) throws IOException {
+    BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(socket);
+    return SerializePacked.read(bis);
+}
+```
+
+### Comparing Sizes
+
+```java
+MessageBuilder message = createMessage();
+
+// Standard size
+long standardSize = Serialize.computeSerializedSizeInWords(message) * 8;
+
+// Packed size (need to actually serialize)
+ByteArrayOutputStream baos = new ByteArrayOutputStream();
+WritableByteChannel channel = Channels.newChannel(baos);
+SerializePacked.writeToUnbuffered(channel, message);
+long packedSize = baos.size();
+
+double ratio = (double) standardSize / packedSize;
+System.out.printf("Standard: %d bytes, Packed: %d bytes (%.1fx compression)%n",
+    standardSize, packedSize, ratio);
+```
+
+## When to Use Packed Format
+
+**Use packed format when:**
+- Storing messages long-term (database, files)
+- Transmitting over slow networks
+- Data is sparse (many zero bytes)
+- Message size matters more than CPU time
+
+**Use standard format when:**
+- Low-latency IPC
+- Fast local networks
+- Data is dense
+- CPU time matters more than size
+
+## Error Handling
+
+```java
+try {
+    MessageReader reader = SerializePacked.readFromUnbuffered(channel);
+} catch (DecodeException e) {
+    // Invalid packed data or message structure
+    System.err.println("Malformed packed message: " + e.getMessage());
+} catch (IOException e) {
+    // I/O error
+    System.err.println("Read failed: " + e.getMessage());
+}
+```
+
+## Performance Considerations
+
+1. **Always buffer**: Use `BufferedInputStream/OutputStream` wrappers
+2. **Flush output**: Call `flush()` on buffered output after writing
+3. **Batch operations**: Write/read multiple messages with same buffer
+4. **Pre-size buffers**: Default buffer size is usually adequate
+
+## See Also
+
+- [Serialize](/docs/api-reference/serialize) - Standard format
+- [Serialization Guide](/docs/serialization) - Usage patterns

@@ -1,12 +1,15 @@
+import { createMDX } from 'fumadocs-mdx/next';
+
+const withMDX = createMDX();
+
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const config = {
+  basePath: '/zap-java',
   output: 'export',
-  basePath: '/capnp-java',
-  assetPrefix: '/capnp-java/',
+  reactStrictMode: true,
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-}
+};
 
-export default nextConfig
+export default withMDX(config);
