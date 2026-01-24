@@ -8,7 +8,7 @@ The `SerializePacked` class provides methods for reading and writing ZAP message
 ## Package
 
 ```java
-import org.capnproto.SerializePacked;
+import org.zap.SerializePacked;
 ```
 
 ## Overview
@@ -101,7 +101,7 @@ For best performance with packed format, use the provided buffered wrappers.
 ### BufferedInputStreamWrapper
 
 ```java
-import org.capnproto.BufferedInputStreamWrapper;
+import org.zap.BufferedInputStreamWrapper;
 
 try (FileInputStream fis = new FileInputStream("data.packed")) {
     BufferedInputStreamWrapper bis = new BufferedInputStreamWrapper(fis.getChannel());
@@ -112,7 +112,7 @@ try (FileInputStream fis = new FileInputStream("data.packed")) {
 ### BufferedOutputStreamWrapper
 
 ```java
-import org.capnproto.BufferedOutputStreamWrapper;
+import org.zap.BufferedOutputStreamWrapper;
 
 try (FileOutputStream fos = new FileOutputStream("data.packed")) {
     BufferedOutputStreamWrapper bos = new BufferedOutputStreamWrapper(fos.getChannel());

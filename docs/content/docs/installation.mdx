@@ -8,29 +8,29 @@ description: Add ZAP Java to your Maven or Gradle project
 Before using ZAP Java, you need:
 
 1. **Java 11+**: The runtime requires Java 11 or later
-2. **ZAP compiler**: Install the `capnp` compiler for schema compilation
+2. **ZAP compiler**: Install the `zap` compiler for schema compilation
 
 ### Installing the ZAP Compiler
 
 On macOS:
 ```bash
-brew install capnp
+brew install zap
 ```
 
 On Ubuntu/Debian:
 ```bash
-apt-get install capnproto
+apt-get install zap
 ```
 
 On Fedora:
 ```bash
-dnf install capnproto
+dnf install zap
 ```
 
 From source:
 ```bash
-git clone https://github.com/capnproto/capnproto.git
-cd capnproto/c++
+git clone https://github.com/zap-protocol/zap.git
+cd zap/c++
 autoreconf -i
 ./configure
 make -j$(nproc)
@@ -43,7 +43,7 @@ Add the runtime dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>org.capnproto</groupId>
+    <groupId>org.zap</groupId>
     <artifactId>runtime</artifactId>
     <version>0.1.17</version>
 </dependency>
@@ -55,8 +55,8 @@ For code generation during build, add the compiler plugin:
 <build>
     <plugins>
         <plugin>
-            <groupId>org.capnproto</groupId>
-            <artifactId>capnpc-java-plugin</artifactId>
+            <groupId>org.zap</groupId>
+            <artifactId>zapc-java-plugin</artifactId>
             <version>0.1.17</version>
             <executions>
                 <execution>
@@ -67,7 +67,7 @@ For code generation during build, add the compiler plugin:
                         <schemas>
                             <schema>src/main/schema/addressbook.zap</schema>
                         </schemas>
-                        <outputDirectory>${project.build.directory}/generated-sources/capnp</outputDirectory>
+                        <outputDirectory>${project.build.directory}/generated-sources/zap</outputDirectory>
                     </configuration>
                 </execution>
             </executions>
@@ -87,7 +87,7 @@ For code generation during build, add the compiler plugin:
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>capnp-demo</artifactId>
+    <artifactId>zap-demo</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
@@ -95,14 +95,14 @@ For code generation during build, add the compiler plugin:
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <capnproto.version>0.1.17</capnproto.version>
+        <zap.version>0.1.17</zap.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>org.capnproto</groupId>
+            <groupId>org.zap</groupId>
             <artifactId>runtime</artifactId>
-            <version>${capnproto.version}</version>
+            <version>${zap.version}</version>
         </dependency>
     </dependencies>
 
@@ -131,7 +131,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.capnproto:runtime:0.1.17'
+    implementation 'org.zap:runtime:0.1.17'
 }
 ```
 
@@ -145,7 +145,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.capnproto:runtime:0.1.17")
+    implementation("org.zap:runtime:0.1.17")
 }
 ```
 
@@ -158,32 +158,32 @@ plugins {
     id 'java'
 }
 
-def capnpSrcDir = file('src/main/schema')
-def capnpOutDir = file("${buildDir}/generated-sources/capnp")
+def zapSrcDir = file('src/main/schema')
+def zapOutDir = file("${buildDir}/generated-sources/zap")
 
-task generateCapnp(type: Exec) {
-    inputs.dir capnpSrcDir
-    outputs.dir capnpOutDir
+task generateZap(type: Exec) {
+    inputs.dir zapSrcDir
+    outputs.dir zapOutDir
 
     doFirst {
-        capnpOutDir.mkdirs()
+        zapOutDir.mkdirs()
     }
 
-    commandLine 'capnp', 'compile',
-        '-ojava:' + capnpOutDir.absolutePath,
-        '--src-prefix=' + capnpSrcDir.absolutePath,
-        fileTree(capnpSrcDir).matching { include '**/*.zap' }.files.join(' ')
+    commandLine 'zap', 'compile',
+        '-ojava:' + zapOutDir.absolutePath,
+        '--src-prefix=' + zapSrcDir.absolutePath,
+        fileTree(zapSrcDir).matching { include '**/*.zap' }.files.join(' ')
 }
 
 sourceSets {
     main {
         java {
-            srcDir capnpOutDir
+            srcDir zapOutDir
         }
     }
 }
 
-compileJava.dependsOn generateCapnp
+compileJava.dependsOn generateZap
 ```
 
 ### Complete Gradle Example (Kotlin DSL)
@@ -199,7 +199,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.capnproto:runtime:0.1.17")
+    implementation("org.zap:runtime:0.1.17")
 }
 
 java {
@@ -208,33 +208,33 @@ java {
     }
 }
 
-val capnpSrcDir = file("src/main/schema")
-val capnpOutDir = file("${layout.buildDirectory.get()}/generated-sources/capnp")
+val zapSrcDir = file("src/main/schema")
+val zapOutDir = file("${layout.buildDirectory.get()}/generated-sources/zap")
 
-tasks.register<Exec>("generateCapnp") {
-    inputs.dir(capnpSrcDir)
-    outputs.dir(capnpOutDir)
+tasks.register<Exec>("generateZap") {
+    inputs.dir(zapSrcDir)
+    outputs.dir(zapOutDir)
 
     doFirst {
-        capnpOutDir.mkdirs()
+        zapOutDir.mkdirs()
     }
 
-    commandLine("capnp", "compile",
-        "-ojava:${capnpOutDir.absolutePath}",
-        "--src-prefix=${capnpSrcDir.absolutePath}")
-    args(fileTree(capnpSrcDir).matching { include("**/*.zap") }.files.map { it.absolutePath })
+    commandLine("zap", "compile",
+        "-ojava:${zapOutDir.absolutePath}",
+        "--src-prefix=${zapSrcDir.absolutePath}")
+    args(fileTree(zapSrcDir).matching { include("**/*.zap") }.files.map { it.absolutePath })
 }
 
 sourceSets {
     main {
         java {
-            srcDir(capnpOutDir)
+            srcDir(zapOutDir)
         }
     }
 }
 
 tasks.compileJava {
-    dependsOn("generateCapnp")
+    dependsOn("generateZap")
 }
 
 application {
@@ -248,7 +248,7 @@ If you prefer manual code generation:
 
 ```bash
 # Generate Java code from schema
-capnp compile -ojava:src/main/java addressbook.zap
+zap compile -ojava:src/main/java addressbook.zap
 ```
 
 The generated file will be placed in the package specified by the schema's `$Java.package` annotation.
@@ -258,9 +258,9 @@ The generated file will be placed in the package specified by the schema's `$Jav
 Create a simple test to verify the installation:
 
 ```java
-import org.capnproto.MessageBuilder;
-import org.capnproto.MessageReader;
-import org.capnproto.Serialize;
+import org.zap.MessageBuilder;
+import org.zap.MessageReader;
+import org.zap.Serialize;
 
 public class VerifyInstall {
     public static void main(String[] args) {

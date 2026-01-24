@@ -49,7 +49,7 @@ struct AddressBook {
 ## Generate Code
 
 ```bash
-capnp compile -ojava:src/main/java addressbook.zap
+zap compile -ojava:src/main/java addressbook.zap
 ```
 
 ## Writing an Address Book
@@ -57,7 +57,7 @@ capnp compile -ojava:src/main/java addressbook.zap
 ```java
 package com.example.addressbook;
 
-import org.capnproto.*;
+import org.zap.*;
 import com.example.addressbook.Addressbook.*;
 import java.io.*;
 
@@ -117,7 +117,7 @@ public class WriteAddressBook {
 ```java
 package com.example.addressbook;
 
-import org.capnproto.*;
+import org.zap.*;
 import com.example.addressbook.Addressbook.*;
 import java.io.*;
 
@@ -207,7 +207,7 @@ Person #2
 
     <dependencies>
         <dependency>
-            <groupId>org.capnproto</groupId>
+            <groupId>org.zap</groupId>
             <artifactId>runtime</artifactId>
             <version>0.1.17</version>
         </dependency>
@@ -230,7 +230,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.capnproto:runtime:0.1.17")
+    implementation("org.zap:runtime:0.1.17")
 }
 
 java {

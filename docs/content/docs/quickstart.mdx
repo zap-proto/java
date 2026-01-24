@@ -47,7 +47,7 @@ struct AddressBook {
 ```
 
 Key elements:
-- `@0x...`: Unique file ID (generate with `capnp id`)
+- `@0x...`: Unique file ID (generate with `zap id`)
 - `$Java.package`: Target Java package
 - `$Java.outerClassname`: Generated outer class name
 - `@N`: Field ordinals for binary compatibility
@@ -57,7 +57,7 @@ Key elements:
 Run the ZAP compiler:
 
 ```bash
-capnp compile -ojava:src/main/java addressbook.zap
+zap compile -ojava:src/main/java addressbook.zap
 ```
 
 This generates `Addressbook.java` containing:
@@ -70,8 +70,8 @@ This generates `Addressbook.java` containing:
 Use `MessageBuilder` to construct ZAP messages:
 
 ```java
-import org.capnproto.MessageBuilder;
-import org.capnproto.StructList;
+import org.zap.MessageBuilder;
+import org.zap.StructList;
 import com.example.addressbook.Addressbook.AddressBook;
 import com.example.addressbook.Addressbook.Person;
 
@@ -111,7 +111,7 @@ public class WriteAddressBook {
         bobPhones.get(1).setNumber("555-7654");
         bobPhones.get(1).setType(Person.PhoneNumber.Type.WORK);
 
-        bob.getEmployment().setUnemployed(org.capnproto.Void.VOID);
+        bob.getEmployment().setUnemployed(org.zap.Void.VOID);
 
         return message;
     }
@@ -123,8 +123,8 @@ public class WriteAddressBook {
 Write messages to files or streams:
 
 ```java
-import org.capnproto.Serialize;
-import org.capnproto.SerializePacked;
+import org.zap.Serialize;
+import org.zap.SerializePacked;
 import java.io.FileOutputStream;
 import java.nio.channels.WritableByteChannel;
 
@@ -152,9 +152,9 @@ public class SerializeExample {
 Deserialize and access data:
 
 ```java
-import org.capnproto.MessageReader;
-import org.capnproto.Serialize;
-import org.capnproto.SerializePacked;
+import org.zap.MessageReader;
+import org.zap.Serialize;
+import org.zap.SerializePacked;
 import java.io.FileInputStream;
 import java.nio.channels.ReadableByteChannel;
 
@@ -253,7 +253,7 @@ public class ByteBufferExample {
 Here is a self-contained example:
 
 ```java
-import org.capnproto.*;
+import org.zap.*;
 import com.example.addressbook.Addressbook.*;
 import java.io.*;
 import java.nio.channels.*;

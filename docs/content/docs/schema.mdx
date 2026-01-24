@@ -3,7 +3,7 @@ title: Schema Language
 description: Define data structures with ZAP schemas and generate Java code
 ---
 
-ZAP schemas define your data structures in a language-independent format. The `capnp` compiler generates type-safe Java code from these schemas.
+ZAP schemas define your data structures in a language-independent format. The `zap` compiler generates type-safe Java code from these schemas.
 
 ## Schema Basics
 
@@ -19,7 +19,7 @@ $Java.outerClassname("MySchema");
 
 Generate a unique ID with:
 ```bash
-capnp id
+zap id
 ```
 
 ## Primitive Types
@@ -28,7 +28,7 @@ ZAP supports these primitive types:
 
 | ZAP | Java Type | Size |
 |-------------|-----------|------|
-| `Void` | `org.capnproto.Void` | 0 bits |
+| `Void` | `org.zap.Void` | 0 bits |
 | `Bool` | `boolean` | 1 bit |
 | `Int8` | `byte` | 8 bits |
 | `Int16` | `short` | 16 bits |
@@ -208,7 +208,7 @@ result.setSuccess("Done!");
 // or
 result.setError("Failed");
 // or
-result.setPending(org.capnproto.Void.VOID);
+result.setPending(org.zap.Void.VOID);
 
 // Reading
 switch (result.which()) {
@@ -333,13 +333,13 @@ Generate Java code with:
 
 ```bash
 # Single file
-capnp compile -ojava:src/main/java schema.zap
+zap compile -ojava:src/main/java schema.zap
 
 # Multiple files
-capnp compile -ojava:src/main/java *.zap
+zap compile -ojava:src/main/java *.zap
 
 # With include path
-capnp compile -I/path/to/includes -ojava:out schema.zap
+zap compile -I/path/to/includes -ojava:out schema.zap
 ```
 
 The generated outer class contains all structs, enums, and factories defined in the schema.

@@ -10,7 +10,7 @@ ZAP provides two serialization formats: standard (unpacked) and packed. Both pre
 `MessageBuilder` is the entry point for creating ZAP messages:
 
 ```java
-import org.capnproto.MessageBuilder;
+import org.zap.MessageBuilder;
 
 // Default constructor
 MessageBuilder message = new MessageBuilder();
@@ -50,7 +50,7 @@ message.setRoot(Person.factory, existingReader);
 The standard format preserves exact binary layout:
 
 ```java
-import org.capnproto.Serialize;
+import org.zap.Serialize;
 import java.nio.channels.*;
 
 // Write to channel
@@ -72,7 +72,7 @@ try (FileInputStream fis = new FileInputStream("data.bin")) {
 Configure read behavior with `ReaderOptions`:
 
 ```java
-import org.capnproto.ReaderOptions;
+import org.zap.ReaderOptions;
 
 ReaderOptions options = new ReaderOptions(
     64 * 1024 * 1024,  // traversalLimitInWords (64M words = 512MB)
@@ -118,7 +118,7 @@ if (maybeReader.isPresent()) {
 Packed format compresses sparse data:
 
 ```java
-import org.capnproto.SerializePacked;
+import org.zap.SerializePacked;
 
 // Write packed
 SerializePacked.writeToUnbuffered(channel, message);
@@ -132,8 +132,8 @@ MessageReader reader = SerializePacked.readFromUnbuffered(channel);
 For better performance with packed format, use buffered streams:
 
 ```java
-import org.capnproto.BufferedInputStream;
-import org.capnproto.BufferedOutputStream;
+import org.zap.BufferedInputStream;
+import org.zap.BufferedOutputStream;
 
 // Buffered write
 try (BufferedOutputStreamWrapper out = new BufferedOutputStreamWrapper(channel)) {
@@ -243,7 +243,7 @@ for (int i = 0; i < ids.size(); i++) {
 // Writing
 TextList.Builder tags = item.initTags(3);
 tags.set(0, new Text.Reader("java"));
-tags.set(1, new Text.Reader("capnproto"));
+tags.set(1, new Text.Reader("zap"));
 tags.set(2, new Text.Reader("serialization"));
 
 // Reading
@@ -294,7 +294,7 @@ MessageBuilder message2 = new MessageBuilder(segments[0]);
 Implement `Allocator` for custom memory management:
 
 ```java
-import org.capnproto.Allocator;
+import org.zap.Allocator;
 
 public class PooledAllocator implements Allocator {
     private final Queue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
@@ -368,7 +368,7 @@ try (FileInputStream fis = new FileInputStream("messages.bin")) {
 ## Error Handling
 
 ```java
-import org.capnproto.DecodeException;
+import org.zap.DecodeException;
 
 try {
     MessageReader reader = Serialize.read(channel);
