@@ -51,7 +51,7 @@ System.out.println(person.getName());
 ### Reading from a File
 
 ```java
-try (FileInputStream fis = new FileInputStream("data.capnp");
+try (FileInputStream fis = new FileInputStream("data.zap");
      FileChannel channel = fis.getChannel()) {
     MessageReader message = Serialize.read(channel);
     AddressBook.Reader addressBook = message.getRoot(AddressBook.factory);

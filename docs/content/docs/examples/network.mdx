@@ -7,12 +7,12 @@ This example shows how to use ZAP for network communication between a client and
 
 ## Schema
 
-Create `protocol.capnp`:
+Create `protocol.zap`:
 
 ```protobuf
 @0xa1b2c3d4e5f67890;
 
-using Java = import "/capnp/java.capnp";
+using Java = import "/zap/java.zap";
 $Java.package("com.example.protocol");
 $Java.outerClassname("Protocol");
 

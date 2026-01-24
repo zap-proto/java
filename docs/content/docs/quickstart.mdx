@@ -7,12 +7,12 @@ This guide walks you through building a complete ZAP application in Java, from s
 
 ## Step 1: Define Your Schema
 
-Create a file `addressbook.capnp`:
+Create a file `addressbook.zap`:
 
 ```protobuf
 @0x9eb32e19f86ee174;
 
-using Java = import "/capnp/java.capnp";
+using Java = import "/zap/java.zap";
 $Java.package("com.example.addressbook");
 $Java.outerClassname("Addressbook");
 
@@ -57,7 +57,7 @@ Key elements:
 Run the ZAP compiler:
 
 ```bash
-capnp compile -ojava:src/main/java addressbook.capnp
+capnp compile -ojava:src/main/java addressbook.zap
 ```
 
 This generates `Addressbook.java` containing:

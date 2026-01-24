@@ -96,7 +96,7 @@ bob.setName("Bob");
 bob.setEmail("bob@example.com");
 
 // Write to a file
-try (FileOutputStream fos = new FileOutputStream("addressbook.capnp");
+try (FileOutputStream fos = new FileOutputStream("addressbook.zap");
      FileChannel channel = fos.getChannel()) {
     Serialize.write(channel, message);
 }

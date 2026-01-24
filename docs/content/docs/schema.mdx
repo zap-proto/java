@@ -12,7 +12,7 @@ Every schema file starts with a unique ID and Java annotations:
 ```protobuf
 @0x85150b117366d14b;  # Unique file ID
 
-using Java = import "/capnp/java.capnp";
+using Java = import "/zap/java.zap";
 $Java.package("com.example.myapp");
 $Java.outerClassname("MySchema");
 ```
@@ -333,13 +333,13 @@ Generate Java code with:
 
 ```bash
 # Single file
-capnp compile -ojava:src/main/java schema.capnp
+capnp compile -ojava:src/main/java schema.zap
 
 # Multiple files
-capnp compile -ojava:src/main/java *.capnp
+capnp compile -ojava:src/main/java *.zap
 
 # With include path
-capnp compile -I/path/to/includes -ojava:out schema.capnp
+capnp compile -I/path/to/includes -ojava:out schema.zap
 ```
 
 The generated outer class contains all structs, enums, and factories defined in the schema.

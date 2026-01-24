@@ -65,7 +65,7 @@ For code generation during build, add the compiler plugin:
                     </goals>
                     <configuration>
                         <schemas>
-                            <schema>src/main/schema/addressbook.capnp</schema>
+                            <schema>src/main/schema/addressbook.zap</schema>
                         </schemas>
                         <outputDirectory>${project.build.directory}/generated-sources/capnp</outputDirectory>
                     </configuration>
@@ -172,7 +172,7 @@ task generateCapnp(type: Exec) {
     commandLine 'capnp', 'compile',
         '-ojava:' + capnpOutDir.absolutePath,
         '--src-prefix=' + capnpSrcDir.absolutePath,
-        fileTree(capnpSrcDir).matching { include '**/*.capnp' }.files.join(' ')
+        fileTree(capnpSrcDir).matching { include '**/*.zap' }.files.join(' ')
 }
 
 sourceSets {
@@ -222,7 +222,7 @@ tasks.register<Exec>("generateCapnp") {
     commandLine("capnp", "compile",
         "-ojava:${capnpOutDir.absolutePath}",
         "--src-prefix=${capnpSrcDir.absolutePath}")
-    args(fileTree(capnpSrcDir).matching { include("**/*.capnp") }.files.map { it.absolutePath })
+    args(fileTree(capnpSrcDir).matching { include("**/*.zap") }.files.map { it.absolutePath })
 }
 
 sourceSets {
@@ -248,7 +248,7 @@ If you prefer manual code generation:
 
 ```bash
 # Generate Java code from schema
-capnp compile -ojava:src/main/java addressbook.capnp
+capnp compile -ojava:src/main/java addressbook.zap
 ```
 
 The generated file will be placed in the package specified by the schema's `$Java.package` annotation.

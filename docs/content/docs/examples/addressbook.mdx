@@ -7,12 +7,12 @@ This example demonstrates ZAP's core features: structs, lists, enums, and unions
 
 ## Schema
 
-Create `addressbook.capnp`:
+Create `addressbook.zap`:
 
 ```protobuf
 @0x9eb32e19f86ee174;
 
-using Java = import "/capnp/java.capnp";
+using Java = import "/zap/java.zap";
 $Java.package("com.example.addressbook");
 $Java.outerClassname("Addressbook");
 
@@ -49,7 +49,7 @@ struct AddressBook {
 ## Generate Code
 
 ```bash
-capnp compile -ojava:src/main/java addressbook.capnp
+capnp compile -ojava:src/main/java addressbook.zap
 ```
 
 ## Writing an Address Book
