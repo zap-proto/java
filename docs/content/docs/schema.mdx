@@ -9,7 +9,7 @@ ZAP schemas define your data structures in a language-independent format. The `c
 
 Every schema file starts with a unique ID and Java annotations:
 
-```capnp
+```protobuf
 @0x85150b117366d14b;  # Unique file ID
 
 using Java = import "/capnp/java.capnp";
@@ -47,7 +47,7 @@ ZAP supports these primitive types:
 
 Structs are the primary data container:
 
-```capnp
+```protobuf
 struct Point {
   x @0 :Float64;
   y @1 :Float64;
@@ -83,7 +83,7 @@ public class Point {
 
 Specify default values inline:
 
-```capnp
+```protobuf
 struct Config {
   timeout @0 :UInt32 = 30000;
   hostname @1 :Text = "localhost";
@@ -95,7 +95,7 @@ struct Config {
 
 Structs can be nested:
 
-```capnp
+```protobuf
 struct Person {
   name @0 :Text;
   address @1 :Address;
@@ -124,7 +124,7 @@ addr.setZip("02101");
 
 Define enumerated types:
 
-```capnp
+```protobuf
 enum Color {
   red @0;
   green @1;
@@ -153,7 +153,7 @@ switch (c) {
 
 Lists hold sequences of values:
 
-```capnp
+```protobuf
 struct Document {
   tags @0 :List(Text);
   scores @1 :List(Float64);
@@ -190,7 +190,7 @@ items.get(0).setValue(100);
 
 Unions allow one-of-many field selection:
 
-```capnp
+```protobuf
 struct Result {
   union {
     success @0 :Text;
@@ -222,7 +222,7 @@ switch (result.which()) {
 
 Groups can contain unions:
 
-```capnp
+```protobuf
 struct Person {
   name @0 :Text;
 
@@ -252,7 +252,7 @@ if (emp.which() == Person.Employment.Which.EMPLOYER) {
 
 Groups organize fields without adding a pointer:
 
-```capnp
+```protobuf
 struct Rectangle {
   topLeft :group {
     x @0 :Float64;
@@ -271,7 +271,7 @@ Groups are accessed as nested readers/builders but share the parent struct's dat
 
 Define compile-time constants:
 
-```capnp
+```protobuf
 const defaultTimeout :UInt32 = 5000;
 const greeting :Text = "Hello, World!";
 ```
@@ -280,7 +280,7 @@ const greeting :Text = "Hello, World!";
 
 Add metadata with annotations:
 
-```capnp
+```protobuf
 annotation doc(struct, field) :Text;
 
 struct Person @0x... $doc("A person record") {
@@ -310,7 +310,7 @@ ZAP supports forward and backward compatibility:
 ### Example Evolution
 
 Original:
-```capnp
+```protobuf
 struct User {
   id @0 :UInt64;
   name @1 :Text;
@@ -318,7 +318,7 @@ struct User {
 ```
 
 Updated (compatible):
-```capnp
+```protobuf
 struct User {
   id @0 :UInt64;
   name @1 :Text;
