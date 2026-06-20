@@ -1,16 +1,16 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.capnproto</groupId>
+    <groupId>org.zap</groupId>
     <artifactId>compiler</artifactId>
     <packaging>jar</packaging>
     <description>schema compiler plugin for java</description>
     <version>0.1.17-SNAPSHOT</version>
-    <name>capnpc-java</name>
+    <name>zapc-java</name>
     <organization>
-        <name>org.capnproto</name>
+        <name>org.zap</name>
     </organization>
-    <url>https://capnproto.org/</url>
+    <url>https://zap-proto.io/</url>
     <licenses>
         <license>
             <name>MIT</name>
@@ -19,8 +19,8 @@
         </license>
     </licenses>
     <scm>
-        <url>git@github.com:capnproto/capnproto-java.git</url>
-        <connection>scm:git@github.com:capnproto/capnproto-java.git</connection>
+        <url>git@github.com:zap-proto/java.git</url>
+        <connection>scm:git@github.com:zap-proto/java.git</connection>
     </scm>
     <developers>
         <developer>
@@ -38,12 +38,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
+            <version>5.14.4</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-          <groupId>org.capnproto</groupId>
+          <groupId>org.zap</groupId>
           <artifactId>runtime</artifactId>
           <version>0.1.17-SNAPSHOT</version>
         </dependency>
@@ -54,7 +54,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.3</version>
+          <version>3.15.0</version>
           <configuration>
             <compilerArgument>-Xlint:unchecked</compilerArgument>
           </configuration>
@@ -62,7 +62,7 @@
 
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
-          <version>3.0.0</version>
+          <version>3.2.0</version>
           <executions>
 
             <execution>
@@ -86,14 +86,14 @@
               <configuration>
                 <target>
                   <mkdir dir="src/test/generated"/>
-                  <exec executable="capnp" failonerror="true">
+                  <exec executable="zap" failonerror="true">
                     <arg value="compile"/>
                     <arg value="-I"/>
                     <arg value="src/main/schema/"/>
                     <arg value="--src-prefix=src/test/schema/"/>
-                    <arg value="-o../capnpc-java:src/test/generated"/>
-                    <arg value="src/test/schema/test.capnp"/>
-                    <arg value="src/test/schema/test-import.capnp"/>
+                    <arg value="-o../zapc-java:src/test/generated"/>
+                    <arg value="src/test/schema/test.zap"/>
+                    <arg value="src/test/schema/test-import.zap"/>
                   </exec>
                 </target>
               </configuration>
@@ -107,7 +107,7 @@
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
-          <version>3.1.0</version>
+          <version>3.6.1</version>
           <executions>
             <execution>
               <id>add-generated-test-sources</id>

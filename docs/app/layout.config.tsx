@@ -12,7 +12,7 @@ export const baseOptions: BaseLayoutProps = {
     },
     {
       text: 'GitHub',
-      url: 'https://github.com/zap-protocol/zap-java',
+      url: 'https://github.com/zap-proto/java',
     },
   ],
 };

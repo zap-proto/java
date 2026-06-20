@@ -37,7 +37,7 @@ performed in the code, but only as an overflow check of their product (against t
 pointer). The element size is read as a `short` value with improper casting to signed integers. Therefore, it is
 possible to craft a message that will encode a large amount of elements (up to `2^30`) and offset this bloated size by
 specifying a negative size of the elements (in words). There is no need to encode the actual payload for the large list,
-thus capnproto-java will generate Iterators with large iteration counts over empty payload with messages of well under
+thus zap-java will generate Iterators with large iteration counts over empty payload with messages of well under
 100 bytes, that may put CPU under loads heavy enough to easily perform DoS attacks.
 
 Remediation

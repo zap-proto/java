@@ -1,16 +1,16 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.capnproto</groupId>
+    <groupId>org.zap</groupId>
     <artifactId>benchmark</artifactId>
     <packaging>jar</packaging>
-    <description>capnproto-java benchmark</description>
+    <description>zap-java benchmark</description>
     <version>0.1.17-SNAPSHOT</version>
-    <name>capnproto-java benchmark</name>
+    <name>zap-java benchmark</name>
     <organization>
-        <name>org.capnproto</name>
+        <name>org.zap</name>
     </organization>
-    <url>https://capnproto.org/</url>
+    <url>https://zap-proto.io/</url>
     <licenses>
         <license>
             <name>MIT</name>
@@ -19,8 +19,8 @@
         </license>
     </licenses>
     <scm>
-        <url>git@github.com:capnproto/capnproto-java.git</url>
-        <connection>scm:git@github.com:capnproto/capnproto-java.git</connection>
+        <url>git@github.com:zap-proto/java.git</url>
+        <connection>scm:git@github.com:zap-proto/java.git</connection>
     </scm>
     <developers>
         <developer>
@@ -37,7 +37,7 @@
     </properties>
     <dependencies>
         <dependency>
-          <groupId>org.capnproto</groupId>
+          <groupId>org.zap</groupId>
           <artifactId>runtime</artifactId>
           <version>0.1.17-SNAPSHOT</version>
         </dependency>
@@ -47,7 +47,7 @@
       <plugins>
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
-          <version>3.0.0</version>
+          <version>3.2.0</version>
           <executions>
             <execution>
               <id>generate-sources</id>
@@ -55,15 +55,15 @@
               <configuration>
                 <target>
                   <mkdir dir="src/main/generated"/>
-                  <exec executable="capnp" failonerror="true">
+                  <exec executable="zap" failonerror="true">
                     <arg value="compile"/>
                     <arg value="-I"/>
                     <arg value="../compiler/src/main/schema/"/>
                     <arg value="--src-prefix=src/main/schema/"/>
-                    <arg value="-o../capnpc-java:src/main/generated"/>
-                    <arg value="src/main/schema/eval.capnp"/>
-                    <arg value="src/main/schema/carsales.capnp"/>
-                    <arg value="src/main/schema/catrank.capnp"/>
+                    <arg value="-o../zapc-java:src/main/generated"/>
+                    <arg value="src/main/schema/eval.zap"/>
+                    <arg value="src/main/schema/carsales.zap"/>
+                    <arg value="src/main/schema/catrank.zap"/>
                   </exec>
                 </target>
               </configuration>
@@ -77,7 +77,7 @@
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
-          <version>3.1.0</version>
+          <version>3.6.1</version>
           <executions>
             <execution>
               <id>add-generated-sources</id>

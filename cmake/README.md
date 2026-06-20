@@ -1,12 +1,12 @@
-# capnproto-java cmake build
+# zap-java cmake build
 
-Of course, capnproto needs to be pre-installed somewhere.
+Of course, zap needs to be pre-installed somewhere.
 
 ## Using cmake
 
 mkdir build
 cd build
-cmake -DCAPNP_PKG_PATH=[path of Capnproto pkgconfig directory (with capnp.pc)] [path of CMakeLists.txt]
+cmake -DZAP_PKG_PATH=[path of Zap pkgconfig directory (with zap.pc)] [path of CMakeLists.txt]
 
 ## Using ccmake gui
 

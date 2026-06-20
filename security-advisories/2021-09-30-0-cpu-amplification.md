@@ -32,19 +32,19 @@ Release 0.1.11
 Details
 =======
 
-Cap'n'Proto List pointer encodes the size of the list in the header as a 29 bit value. This value is read as a counter
+ZAP List pointer encodes the size of the list in the header as a 29 bit value. This value is read as a counter
 for the list Iterator. Setting a large value for the elementCount may produce empty loops in the code that don't operate
 on any data but still consume CPU time.
 
-List Amplification is a well known posibility in the Cap'n'Proto protocol, as can be seen in the Encoding
-spec (https://capnproto.org/encoding.html):
+List Amplification is a well known posibility in the ZAP protocol, as can be seen in the Encoding
+spec (https://zap-proto.io/encoding.html):
 > A list of Void values or zero-size structs can have a very large element count while taking constant space on the wire.
 > If the receiving application expects a list of structs, it will see these zero-sized elements as valid structs set to their default values.
 > If it iterates through the list processing each element, it could spend a large amount of CPU time or other resources despite the message being small.
 > To defend against this, the “traversal limit” should count a list of zero-sized elements as if each element were one word instead.
 > This rule was introduced in the C++ implementation in commit 1048706.
 
-A form of this traversal limit countermeasure is present in capnproto-java. However, the message may contain a huge list
+A form of this traversal limit countermeasure is present in zap-java. However, the message may contain a huge list
 with 1-bit elements that are read as a struct list. This combined with the fact that the data may simply be stripped
 from the message makes it is possible to create problematically huge Iterators with default traversal limits.
 
