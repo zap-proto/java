@@ -16,7 +16,7 @@ export default function HomePage() {
           Get Started
         </Link>
         <Link
-          href="https://github.com/zap-protocol/zap-java"
+          href="https://github.com/zap-proto/java"
           className="rounded-lg border border-fd-border px-4 py-2 font-medium hover:bg-fd-accent"
         >
           GitHub

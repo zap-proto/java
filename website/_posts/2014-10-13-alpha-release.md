@@ -1,25 +1,25 @@
 ---
 layout: post
-title: capnproto-java alpha release with benchmarks
+title: zap-java alpha release with benchmarks
 author: dwrensha
 ---
 
 I'm happy to announce that
-[capnproto-java](https://github.com/dwrensha/capnproto-java) is now a
+[zap-java](https://github.com/dwrensha/zap-java) is now a
 mostly complete implementation of
-the [Cap'n Proto](http://capnproto.org) serialization protocol.
-It supports all of the data features of the Cap'n Proto schema language,
+the [ZAP](https://zap-proto.io) serialization protocol.
+It supports all of the data features of the ZAP schema language,
 including constants, default values, and arbitrarily nested list types.
 Moreover, the runtime and the generated code consist entirely
 of platform-independent, safe Java code.
 
 In the spirit of previous announcements about the
-[Rust](http://dwrensha.github.io/capnproto-rust/2014/01/15/benchmark-update.html)
+[Rust](http://dwrensha.github.io/zap-rust/2014/01/15/benchmark-update.html)
 and
-[OCaml](http://pelzlpj.github.io/capnp-ocaml/2014/09/02/capnp-ocaml-2.0/)
+[OCaml](http://pelzlpj.github.io/zap-ocaml/2014/09/02/zap-ocaml-2.0/)
 implementations,
 I've made some informal measurements
-with the [usual](https://github.com/kentonv/capnproto/tree/master/c%2B%2B/src/benchmark)
+with the [usual](https://github.com/kentonv/zap/tree/master/c%2B%2B/src/benchmark)
 toy benchmark suite.
 The results show
 the Java implementation performing
@@ -39,7 +39,7 @@ is written to a flat array and then re-read in-process.
 In the "pipe" mode, the data is passed
 as a byte stream between separate processes.
 In the "packed" sub-modes,
-a [compression scheme](https://capnproto.org/encoding.html#packing)
+a [compression scheme](https://zap-proto.io/encoding.html#packing)
 is applied to the bytes before they are passed.
 
 To give the JVM a chance to amortize
@@ -67,7 +67,7 @@ member of a list.
 The CatRank case emphasizes string processing.
 One big difficulty faced by Java here is that
 it uses UTF-16 encoding, while
-Cap'n Proto uses UTF-8;
+ZAP uses UTF-8;
 translating between the two requires
 significant copying of memory.
 

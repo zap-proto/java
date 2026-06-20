@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.capnproto</groupId>
-    <artifactId>capnproto-java</artifactId>
+    <groupId>org.zap</groupId>
+    <artifactId>zap-java</artifactId>
     <packaging>pom</packaging>
     <version>0.1.17-SNAPSHOT</version>
-    <name>Cap'n Proto for Java</name>
-    <url>https://capnproto.org/</url>
+    <name>ZAP for Java</name>
+    <url>https://zap-proto.io/</url>
     <modules>
       <module>runtime</module>
       <module>compiler</module>
@@ -21,8 +21,8 @@
         </license>
     </licenses>
     <scm>
-        <url>git@github.com:capnproto/capnproto-java.git</url>
-        <connection>scm:git@github.com:capnproto/capnproto-java.git</connection>
+        <url>git@github.com:zap-proto/java.git</url>
+        <connection>scm:git@github.com:zap-proto/java.git</connection>
     </scm>
     <developers>
         <developer>

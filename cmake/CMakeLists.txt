@@ -1,35 +1,35 @@
-project(capnproto-java)
+project(zap-java)
 
 cmake_minimum_required(VERSION 3.9)
 
 find_package(PkgConfig REQUIRED)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CAPNPC_JAVA_SOURCES ../compiler/src/main/cpp/capnpc-java.c++)
+set(ZAPC_JAVA_SOURCES ../compiler/src/main/cpp/zapc-java.c++)
 
-if(CAPNP_PKG_PATH)
-  set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CAPNP_PKG_PATH}")
+if(ZAP_PKG_PATH)
+  set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ZAP_PKG_PATH}")
 else()
-  find_path(CAPNP_PKG_PATH_VAR "capnp/lib/pkgconfig" HINTS ${CAPNP_PKG_PATH})
-  set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CAPNP_PKG_PATH_VAR}")
+  find_path(ZAP_PKG_PATH_VAR "zap/lib/pkgconfig" HINTS ${ZAP_PKG_PATH})
+  set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${ZAP_PKG_PATH_VAR}")
 endif()
 
-pkg_search_module(PKG_CAPNP REQUIRED capnp)
+pkg_search_module(PKG_ZAP REQUIRED zap)
 
-if(PKG_CAPNP_FOUND)
-  message(STATUS "Capnp found!")
-  add_executable(capnpc-java
-    ${CAPNPC_JAVA_SOURCES}
+if(PKG_ZAP_FOUND)
+  message(STATUS "Zap found!")
+  add_executable(zapc-java
+    ${ZAPC_JAVA_SOURCES}
   )
 
-  target_include_directories(capnpc-java
+  target_include_directories(zapc-java
     PRIVATE
-      ${PKG_CAPNP_INCLUDE_DIRS}
+      ${PKG_ZAP_INCLUDE_DIRS}
   )
 
-  target_link_libraries(capnpc-java
-    ${PKG_CAPNP_LDFLAGS}
+  target_link_libraries(zapc-java
+    ${PKG_ZAP_LDFLAGS}
   )
 else()
-  message(FATAL_ERROR "Capnp not found!")
+  message(FATAL_ERROR "Zap not found!")
 endif()

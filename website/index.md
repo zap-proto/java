@@ -1,20 +1,20 @@
 ---
 layout: page
-title: Cap'n Proto for Java
+title: ZAP for Java
 ---
 
 ## Introduction
 
-This is a Java implementation of [Cap'n Proto](http://capnproto.org).
+This is a Java implementation of [ZAP](https://zap-proto.io).
 It has two main components:
 
-1. A C++ program `capnpc-java` that
-generates Java source code from Cap'n Proto [schemas](https://capnproto.org/language.html)
+1. A C++ program `zapc-java` that
+generates Java source code from ZAP [schemas](https://zap-proto.io/language.html)
 by acting as a
-[plugin](https://capnproto.org/otherlang.html#how-to-write-compiler-plugins)
-to the Cap'n Proto schema compiler.
+[plugin](https://zap-proto.io/otherlang.html#how-to-write-compiler-plugins)
+to the ZAP schema compiler.
 
-2. A Java package `org.capnproto` that provides runtime support for `capnpc-java`'s generated code.
+2. A Java package `org.zap` that provides runtime support for `zapc-java`'s generated code.
 
 These components let you make your data **mobile**,
 so that you can manipulate your data in Java
@@ -28,7 +28,7 @@ network, you can just directly write the bytes to the wire.
 There is no encode or decode step!
 
 We hope eventually to provide support in Java for a
-[distributed object-capability layer](https://capnproto.org/rpc.html)
+[distributed object-capability layer](https://zap-proto.io/rpc.html)
 built on top of this serialization layer,
 but we have not embarked on that project yet.
 
@@ -37,41 +37,41 @@ but we have not embarked on that project yet.
 
 ### Schema Compiler and Plugin
 
-You will need to [install](http://capnproto.org/install.html) the
-latest release of the Cap'n Proto schema compiler.
-Then, running `make` in the root directory of the capnproto-java repository
-should build `capnpc-java`.
+You will need to [install](https://zap-proto.io/install.html) the
+latest release of the ZAP schema compiler.
+Then, running `make` in the root directory of the zap-java repository
+should build `zapc-java`.
 
 
 For help on how to invoke the schema compiler:
 
 ```
-capnp compile --help
+zap compile --help
 ```
 
-Note that you'll need to include `java.capnp` so that you can use the `package` and `outerClassname`
+Note that you'll need to include `java.zap` so that you can use the `package` and `outerClassname`
 annotations. This schema is located in `compiler/src/main/schema`.
 
-You might find useful [this Maven Plugin](https://github.com/expretio/capnp-maven-plugin).
+You might find useful [this Maven Plugin](https://github.com/expretio/zap-maven-plugin).
 
 ### Runtime
 
 The runtime is available on
-[The Central Repository](https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.capnproto%22).
+[The Central Repository](https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.zap%22).
 
 We use [maven](https://maven.apache.org/) for building and testing the Java code.
 Running `mvn compile` at the top-level directory should build
-`org.capnproto` and `org.capnproto.examples`.
+`org.zap` and `org.zap.examples`.
 Running `mvn test` should run the test suite.
 
 ## Example
 
 We can define types in a schema like this:
 
-{% highlight capnp %}
+{% highlight zap %}
 @0x9eb32e19f86ee174;
-using Java = import "/capnp/java.capnp";
-$Java.package("org.capnproto.examples");
+using Java = import "/zap/java.zap";
+$Java.package("org.zap.examples");
 $Java.outerClassname("Addressbook");
 
 struct Person {
@@ -108,17 +108,17 @@ struct AddressBook {
 Then, after running the schema compiler,
 we can then use those types from Java like this:
 {% highlight java %}
-package org.capnproto.examples;
+package org.zap.examples;
 
-import org.capnproto.StructList;
-import org.capnproto.examples.Addressbook.AddressBook;
-import org.capnproto.examples.Addressbook.Person;
+import org.zap.StructList;
+import org.zap.examples.Addressbook.AddressBook;
+import org.zap.examples.Addressbook.Person;
 
 public class AddressbookMain {
 
   public static void writeAddressBook() throws java.io.IOException {
-    org.capnproto.MessageBuilder message =
-      new org.capnproto.MessageBuilder();
+    org.zap.MessageBuilder message =
+      new org.zap.MessageBuilder();
 
     AddressBook.Builder addressbook =
       message.initRoot(AddressBook.factory);
@@ -147,17 +147,17 @@ public class AddressbookMain {
     bobPhones.get(0).setType(Person.PhoneNumber.Type.HOME);
     bobPhones.get(1).setNumber("555-7654");
     bobPhones.get(1).setType(Person.PhoneNumber.Type.WORK);
-    bob.getEmployment().setUnemployed(org.capnproto.Void.VOID);
+    bob.getEmployment().setUnemployed(org.zap.Void.VOID);
 
-    org.capnproto.SerializePacked.writeToUnbuffered(
+    org.zap.SerializePacked.writeToUnbuffered(
       (new java.io.FileOutputStream(
         java.io.FileDescriptor.out)).getChannel(),
       message);
   }
 
   public static void printAddressBook() throws java.io.IOException {
-    org.capnproto.MessageReader message =
-      org.capnproto.SerializePacked.readFromUnbuffered(
+    org.zap.MessageReader message =
+      org.zap.SerializePacked.readFromUnbuffered(
         (new java.io.FileInputStream(
           java.io.FileDescriptor.in)).getChannel());
 
@@ -229,18 +229,18 @@ To read a message:
 ```
 $ echo '(people = [(id = 123, name = "Alice",' \
 'email = "alice@example.com", employment = (school = "MIT"))])' \
-| capnp encode --packed examples/src/main/schema/addressbook.capnp \
+| zap encode --packed examples/src/main/schema/addressbook.zap \
 AddressBook \
 | java -cp runtime/target/classes:examples/target/classes \
-org.capnproto.examples.AddressbookMain read
+org.zap.examples.AddressbookMain read
 ```
 
 To write a message:
 
 ```
 $ java -cp runtime/target/classes:examples/target/classes \
-org.capnproto.examples.AddressbookMain write \
-| capnp decode --packed examples/src/main/schema/addressbook.capnp \
+org.zap.examples.AddressbookMain write \
+| zap decode --packed examples/src/main/schema/addressbook.zap \
 AddressBook
 ```
 
@@ -250,7 +250,7 @@ The classes and methods provided by the
 Java runtime and generated code
 correspond directly to those
 provided by the
-[C++ implementation](https://capnproto.org/cxx.html),
+[C++ implementation](https://zap-proto.io/cxx.html),
 with just a few adjustments.
 
 - Java does not have unsigned integer types, so a `UInt64`
@@ -284,8 +284,8 @@ Note that the stream returned by `Process.getOutputStream()` is buffered.
 
 There's a lot left to do, and we'd love to have your help! Here are some missing pieces:
 
-- [Orphans](https://capnproto.org/cxx.html#orphans).
-- [Dynamic reflection](https://capnproto.org/cxx.html#dynamic-reflection).
+- [Orphans](https://zap-proto.io/cxx.html#orphans).
+- [Dynamic reflection](https://zap-proto.io/cxx.html#dynamic-reflection).
 - Optimizations, e.g. iterators for `StructList` that update in place instead of allocating for each element.
 - Improvements for build and packaging, e.g. getting a distribution on Maven.
-- The entire [object-capability RPC layer](https://capnproto.org/rpc.html).
+- The entire [object-capability RPC layer](https://zap-proto.io/rpc.html).

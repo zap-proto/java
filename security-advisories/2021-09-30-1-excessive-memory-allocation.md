@@ -18,7 +18,7 @@ Impact
 ======
 
 It is possible for an attacker to craft a malicious message that may thanks to memory amplification lead to a Denial of
-Service attack against the consumer of CapnProto messages. In practical terms a message of only 8 bytes may cause
+Service attack against the consumer of Zap messages. In practical terms a message of only 8 bytes may cause
 allocation of 2GB of memory.
 
 CVSS score
@@ -39,7 +39,7 @@ This size is stored in memory as a signed integer. If the segment count is 1, th
 considered to be the total size of the message stored in a totalWords variable. Since both the segment0Size and the
 totalWords are signed integers, they may hold a negative number which will pass the traversal limit check.
 
-Subsequently capnproto-java tries to allocate enough memory for the segment. Because the encoded size is in words, the
+Subsequently zap-java tries to allocate enough memory for the segment. Because the encoded size is in words, the
 value is multiplied by the number 8. The resulting number is used as the size of a ByteBuffer allocated for the first
 segment. A sufficiently large negative number when multiplied by 8 will net a large positive integer, thus causing large
 memory allocation in the form of a ByteBuffer.
