@@ -1,0 +1,12 @@
+java — part of the ZAP Protocol (github.com/zap-proto)
+
+This product includes software developed by the Cap'n Proto project:
+  capnproto-java — https://github.com/capnproto/capnproto-java
+  Copyright (c) 2013-2015 Sandstorm Development Group, Inc. and contributors
+  Original author: David Renshaw (dwrensha).
+  Licensed under the MIT License (see LICENSE).
+
+ZAP is a derivative work: a brand-neutral fork of capnproto-java providing a
+pure-Java zero-copy runtime and the Java code-generation backend driven by the
+`zap` schema compiler.
+Modifications Copyright (c) 2025 Lux Industries Inc.
